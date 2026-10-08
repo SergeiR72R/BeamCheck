@@ -69,7 +69,7 @@ namespace BeamCheck.Cad
             BeamLoadSession session;
             using (var tr = db.TransactionManager.StartTransaction())
             {
-                var reader = new CadElementReader(tr, classifier, toMm);
+                var reader = new CadElementReader(tr, db, settings, classifier, toMm);
                 var beamEnt = (Entity)tr.GetObject(per.ObjectId, OpenMode.ForRead);
                 var beam = reader.Read(beamEnt, ElementKind.Beam).FirstOrDefault();
                 if (beam == null)
@@ -192,7 +192,7 @@ namespace BeamCheck.Cad
             var added = new List<ScaffoldElement>();
             using (var tr = doc.Database.TransactionManager.StartTransaction())
             {
-                var reader = new CadElementReader(tr, classifier, toMm);
+                var reader = new CadElementReader(tr, doc.Database, session.Settings, classifier, toMm);
                 foreach (var id in res.Value.GetObjectIds())
                     added.AddRange(reader.Read((Entity)tr.GetObject(id, OpenMode.ForRead), kind));
                 foreach (var kv in reader.TopLevelIds)

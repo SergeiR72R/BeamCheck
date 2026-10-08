@@ -42,6 +42,7 @@
   "ColumnOnBeamZTolerance": 600,
   "LevelZTolerance": 150,
   "SearchRadius": 5000,
+  "ColumnGapTolerance": 300,
   "StandardKgPerM": 5.5,
   "LedgerKgPerM": 3.5,
   "DeckKgPerM2": 22,
@@ -71,6 +72,7 @@
     }
   ],
   "ArticleKeys": [
+    "ATTR:ART",
     "ARTICLE",
     "ARTIKEL",
     "ARTNR",
@@ -79,7 +81,7 @@
     "PARTNO",
     "АРТИКУЛ"
   ],
-  "ArticlePattern": "\\b\\d{6}\\b",
+  "ArticlePattern": "(?<![0-9])\\d{6}(-\\d+)?(?![0-9])",
   "WeightKeys": [
     "WEIGHT",
     "GEWICHT",
@@ -89,12 +91,24 @@
     "МАССА"
   ],
   "DescriptionKeys": [
+    "BESCHREIBUNG",
     "DESCRIPTION",
     "BEZEICHNUNG",
-    "NAME",
+    "BLOCKTEXT",
     "ОПИСАНИЕ",
     "НАИМЕНОВАНИЕ"
   ],
+  "UseShapeRecognition": true,
+  "ShapeMinLength": 250,
+  "ShapeStandardMaxPlan": 200,
+  "ShapeLedgerMaxDz": 150,
+  "ShapeLedgerMaxWidth": 80,
+  "ShapeDeckMaxDz": 80,
+  "ShapeDeckMinWidth": 150,
+  "ShapeDeckMaxWidth": 800,
+  "PeriDisplayBlockPattern": "^PERI_(\\d{6}(?:-\\d+)?)_PartDisplayName_(.+)$",
+  "PeriAxisBlockSuffix": "Line",
+  "IgnoreDxfPattern": "(?i)GRUPPE|_GROUP|MANAGER|DISPREP|DISP_REP",
   "TextHeight": 2.5,
   "Scale": 50,
   "Layer": "BEAMLOAD",

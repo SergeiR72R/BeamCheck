@@ -11,4 +11,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\BeamCheck.Core\BeamCheck.Core.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="Fixtures\**\*" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

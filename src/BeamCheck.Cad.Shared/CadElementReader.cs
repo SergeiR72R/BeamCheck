@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Text.RegularExpressions;
 using BeamCheck.Core.Geometry;
 using BeamCheck.Core.Model;
 using BeamCheck.Core.Recognition;
+using BeamCheck.Core.Settings;
 #if BRICSCAD
 using Teigha.DatabaseServices;
 using Teigha.Geometry;
@@ -16,23 +18,49 @@ namespace BeamCheck.Cad
 {
     /// <summary>
     /// Converts CAD entities into <see cref="ScaffoldElement"/>s.
-    /// Unrecognised block references are searched recursively, so components
-    /// nested in PERI assembly blocks are found as well.
+    ///
+    /// Geometry is always reduced to axis line segments in world mm:
+    ///  - PERI CAD parts (custom entities such as PERI_AEC_DB_BAUTEIL) are exploded; the PERI display
+    ///    block found inside ("PERI_&lt;article&gt;_PartDisplayName_3D") gives the article and the
+    ///    transform, and the sibling "_Line" block gives the part's axis lines;
+    ///  - ordinary blocks contribute their lines or, failing that, their bounding-box edges;
+    ///  - anything else contributes its lines or bounding-box edges.
+    /// The kind comes from the settings rules, otherwise from the shape of those segments.
     /// </summary>
     internal sealed class CadElementReader
     {
         private const int MaxNesting = 4;
 
         private readonly Transaction _tr;
+        private readonly Database _db;
+        private readonly BeamCheckSettings _settings;
         private readonly ElementClassifier _classifier;
+        private readonly ShapeAnalyzer _shape;
         private readonly double _toMm;
+        private readonly Regex _periBlock;
+        private readonly Regex _ignoreDxf;
         private readonly Dictionary<ObjectId, Extents3d?> _blockExtents = new Dictionary<ObjectId, Extents3d?>();
+        private readonly Dictionary<string, ObjectId> _blockByName = new Dictionary<string, ObjectId>(StringComparer.OrdinalIgnoreCase);
 
-        public CadElementReader(Transaction tr, ElementClassifier classifier, double unitToMm)
+        public CadElementReader(Transaction tr, Database db, BeamCheckSettings settings, ElementClassifier classifier, double unitToMm)
         {
             _tr = tr;
+            _db = db;
+            _settings = settings;
             _classifier = classifier;
+            _shape = new ShapeAnalyzer(settings);
             _toMm = unitToMm;
+            if (!string.IsNullOrEmpty(settings.PeriDisplayBlockPattern))
+                _periBlock = new Regex(settings.PeriDisplayBlockPattern, RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+            if (!string.IsNullOrEmpty(settings.IgnoreDxfPattern))
+                _ignoreDxf = new Regex(settings.IgnoreDxfPattern, RegexOptions.CultureInvariant);
+
+            var bt = (BlockTable)tr.GetObject(db.BlockTableId, OpenMode.ForRead);
+            foreach (ObjectId id in bt)
+            {
+                var btr = (BlockTableRecord)tr.GetObject(id, OpenMode.ForRead);
+                _blockByName[btr.Name] = id;
+            }
         }
 
         /// <summary>Element id → top-level entity (for highlighting).</summary>
@@ -40,38 +68,64 @@ namespace BeamCheck.Cad
 
         /// <summary>
         /// Reads a top-level entity. With <paramref name="forcedKind"/> the entity itself is taken
-        /// as that kind; otherwise it is classified and, if unknown, searched for nested parts.
+        /// as that kind; otherwise it is classified and, if it is an unrecognised assembly block,
+        /// searched for nested parts.
         /// </summary>
         public List<ScaffoldElement> Read(Entity ent, ElementKind? forcedKind = null)
         {
             var list = new List<ScaffoldElement>();
+            if (forcedKind == null && IsIgnored(ent))
+                return list;
             Read(ent, Matrix3d.Identity, ent.Handle.ToString(), ent.ObjectId, forcedKind, 0, list);
             return list;
+        }
+
+        public bool IsIgnored(Entity ent)
+        {
+            if (_ignoreDxf == null)
+                return false;
+            string dxf = DxfName(ent);
+            return !string.IsNullOrEmpty(dxf) && _ignoreDxf.IsMatch(dxf);
         }
 
         private void Read(Entity ent, Matrix3d parent, string id, ObjectId topId, ElementKind? forcedKind, int depth, List<ScaffoldElement> output)
         {
             var sig = ReadSignature(_tr, ent);
+            var segs = new List<Segment>();
+            string periBlock = null;
+            CollectSegments(ent, parent, segs, ref periBlock, 0);
+            if (periBlock != null)
+            {
+                sig.Add("PERI:BLOCK", periBlock);
+                if (string.IsNullOrEmpty(sig.BlockName))
+                    sig.BlockName = periBlock;
+            }
+
             var cls = _classifier.Classify(sig);
             var kind = forcedKind ?? cls.Kind;
 
-            if (kind == ElementKind.Unknown)
+            // An unrecognised ordinary block may be an assembly: look for parts inside first.
+            if (kind == ElementKind.Unknown && periBlock == null && ent is BlockReference br && depth < MaxNesting)
             {
-                if (ent is BlockReference br && depth < MaxNesting)
+                int before = output.Count;
+                var btr = (BlockTableRecord)_tr.GetObject(br.BlockTableRecord, OpenMode.ForRead);
+                var xf = parent * br.BlockTransform;
+                foreach (ObjectId childId in btr)
                 {
-                    var btr = (BlockTableRecord)_tr.GetObject(br.BlockTableRecord, OpenMode.ForRead);
-                    var xf = parent * br.BlockTransform;
-                    foreach (ObjectId childId in btr)
-                    {
-                        if (_tr.GetObject(childId, OpenMode.ForRead) is Entity child && !(child is AttributeDefinition))
-                            Read(child, xf, id + "/" + child.Handle, topId, null, depth + 1, output);
-                    }
+                    if (_tr.GetObject(childId, OpenMode.ForRead) is Entity child && !(child is AttributeDefinition) && !IsIgnored(child))
+                        Read(child, xf, id + "/" + child.Handle, topId, null, depth + 1, output);
                 }
 
-                return;
+                if (output.Count > before)
+                    return;
             }
 
-            var e = BuildGeometry(ent, parent, kind);
+            if (kind == ElementKind.Unknown && _settings.UseShapeRecognition)
+                kind = _shape.Guess(segs);
+            if (kind == ElementKind.Unknown)
+                return;
+
+            var e = _shape.Build(segs, kind);
             if (e == null)
                 return;
 
@@ -93,174 +147,172 @@ namespace BeamCheck.Cad
             output.Add(e);
         }
 
-        public static ElementSignature ReadSignature(Transaction tr, Entity ent)
-        {
-            var sig = new ElementSignature
-            {
-                Handle = ent.Handle.ToString(),
-                EntityType = ent.GetType().Name,
-                Layer = ent.Layer,
-            };
+        // ---------------- geometry ----------------
 
+        /// <summary>Collects the axis/edge segments of an entity in world mm.</summary>
+        public void CollectSegments(Entity ent, Matrix3d xf, List<Segment> segs, ref string periBlock, int depth)
+        {
+            switch (ent)
+            {
+                case BlockReference br:
+                {
+                    var name = EffectiveName(_tr, br);
+                    var bxf = xf * br.BlockTransform;
+                    var m = _periBlock?.Match(name);
+                    if (m != null && m.Success)
+                    {
+                        periBlock = periBlock ?? name;
+                        string axisName = "PERI_" + m.Groups[1].Value + "_PartDisplayName_" + _settings.PeriAxisBlockSuffix;
+                        if (_blockByName.TryGetValue(axisName, out var axisBtr) && AddBlockLines(axisBtr, bxf, segs) > 0)
+                            return;
+                    }
+
+                    if (depth < MaxNesting)
+                    {
+                        int before = segs.Count;
+                        var btr = (BlockTableRecord)_tr.GetObject(br.BlockTableRecord, OpenMode.ForRead);
+                        foreach (ObjectId id in btr)
+                        {
+                            if (_tr.GetObject(id, OpenMode.ForRead) is Entity child && !(child is AttributeDefinition))
+                                CollectSegments(child, bxf, segs, ref periBlock, depth + 1);
+                        }
+
+                        if (segs.Count > before)
+                            return;
+                    }
+
+                    var ext = BlockDefinitionExtents(br.BlockTableRecord);
+                    if (ext.HasValue)
+                        AddBoxEdges(ext.Value, bxf, segs);
+                    return;
+                }
+
+                case Line line:
+                    AddSegment(line.StartPoint, line.EndPoint, xf, segs);
+                    return;
+
+                case Polyline pl:
+                    for (int i = 1; i < pl.NumberOfVertices; i++)
+                        AddSegment(pl.GetPoint3dAt(i - 1), pl.GetPoint3dAt(i), xf, segs);
+                    if (pl.Closed && pl.NumberOfVertices > 2)
+                        AddSegment(pl.GetPoint3dAt(pl.NumberOfVertices - 1), pl.GetPoint3dAt(0), xf, segs);
+                    return;
+
+                case Polyline3d p3:
+                {
+                    Point3d? prev = null, first = null;
+                    foreach (ObjectId vid in p3)
+                    {
+                        var v = (PolylineVertex3d)_tr.GetObject(vid, OpenMode.ForRead);
+                        if (prev.HasValue)
+                            AddSegment(prev.Value, v.Position, xf, segs);
+                        first = first ?? v.Position;
+                        prev = v.Position;
+                    }
+
+                    if (p3.Closed && prev.HasValue && first.HasValue)
+                        AddSegment(prev.Value, first.Value, xf, segs);
+                    return;
+                }
+
+                case Circle _:
+                case Arc _:
+                case Ellipse _:
+                case DBText _:
+                case MText _:
+                    return; // details (rosettes, holes, labels) do not define the axis
+
+                case Solid3d _:
+                case Region _:
+                    AddWorldExtents(ent, xf, segs);
+                    return;
+            }
+
+            // Custom objects (PERI parts) and anything else: look at what they draw.
+            if (depth < MaxNesting && TryExplode(ent, xf, segs, ref periBlock, depth))
+                return;
+            AddWorldExtents(ent, xf, segs);
+        }
+
+        private bool TryExplode(Entity ent, Matrix3d xf, List<Segment> segs, ref string periBlock, int depth)
+        {
+            var parts = new DBObjectCollection();
             try
             {
-                sig.DxfName = ent.GetRXClass().DxfName;
+                ent.Explode(parts);
             }
             catch (System.Exception)
             {
+                return false;
             }
 
-            if (ent is BlockReference br)
+            int before = segs.Count;
+            foreach (DBObject o in parts)
             {
-                sig.BlockName = EffectiveName(tr, br);
-
-                foreach (ObjectId attId in br.AttributeCollection)
-                {
-                    if (tr.GetObject(attId, OpenMode.ForRead) is AttributeReference ar)
-                        sig.Add("ATTR:" + ar.Tag, ar.TextString);
-                }
-
-                var btr = (BlockTableRecord)tr.GetObject(br.BlockTableRecord, OpenMode.ForRead);
-                if (btr.HasAttributeDefinitions)
-                {
-                    foreach (ObjectId id in btr)
-                    {
-                        if (tr.GetObject(id, OpenMode.ForRead) is AttributeDefinition ad && ad.Constant)
-                            sig.Add("ATTR:" + ad.Tag, ad.TextString);
-                    }
-                }
-
-                if (br.IsDynamicBlock)
-                {
-                    foreach (DynamicBlockReferenceProperty p in br.DynamicBlockReferencePropertyCollection)
-                        sig.Add("DYN:" + p.PropertyName, Convert.ToString(p.Value, CultureInfo.InvariantCulture));
-                }
+                if (o is Entity child)
+                    CollectSegments(child, xf, segs, ref periBlock, depth + 1);
+                o.Dispose();
             }
 
-            AddResultBuffer(sig, "XDATA", ent.XData);
-
-            if (!ent.ExtensionDictionary.IsNull && tr.GetObject(ent.ExtensionDictionary, OpenMode.ForRead) is DBDictionary dict)
-                AddDictionary(tr, sig, "XDICT", dict, 0);
-
-            return sig;
+            return segs.Count > before;
         }
 
-        public static string EffectiveName(Transaction tr, BlockReference br)
+        private int AddBlockLines(ObjectId btrId, Matrix3d xf, List<Segment> segs)
         {
-            var btrId = br.IsDynamicBlock ? br.DynamicBlockTableRecord : br.BlockTableRecord;
-            return ((BlockTableRecord)tr.GetObject(btrId, OpenMode.ForRead)).Name;
-        }
-
-        private static void AddDictionary(Transaction tr, ElementSignature sig, string prefix, DBDictionary dict, int depth)
-        {
-            foreach (DBDictionaryEntry entry in dict)
+            int n = 0;
+            var btr = (BlockTableRecord)_tr.GetObject(btrId, OpenMode.ForRead);
+            foreach (ObjectId id in btr)
             {
-                var obj = tr.GetObject(entry.Value, OpenMode.ForRead);
-                if (obj is Xrecord xr)
-                    AddResultBuffer(sig, prefix + ":" + entry.Key, xr.Data);
-                else if (obj is DBDictionary sub && depth < 2)
-                    AddDictionary(tr, sig, prefix + ":" + entry.Key, sub, depth + 1);
+                if (_tr.GetObject(id, OpenMode.ForRead) is Line l)
+                {
+                    AddSegment(l.StartPoint, l.EndPoint, xf, segs);
+                    n++;
+                }
+                else if (_tr.GetObject(id, OpenMode.ForRead) is Polyline pl)
+                {
+                    for (int i = 1; i < pl.NumberOfVertices; i++, n++)
+                        AddSegment(pl.GetPoint3dAt(i - 1), pl.GetPoint3dAt(i), xf, segs);
+                }
             }
+
+            return n;
         }
 
-        private static void AddResultBuffer(ElementSignature sig, string prefix, ResultBuffer rb)
+        private void AddSegment(Point3d a, Point3d b, Matrix3d xf, List<Segment> segs)
         {
-            if (rb == null)
+            var wa = a.TransformBy(xf);
+            var wb = b.TransformBy(xf);
+            if (wa.DistanceTo(wb) * _toMm < 1e-3)
                 return;
-            using (rb)
-            {
-                string app = "";
-                int i = 0;
-                foreach (TypedValue tv in rb)
-                {
-                    if (tv.TypeCode == (short)DxfCode.ExtendedDataRegAppName)
-                    {
-                        app = Convert.ToString(tv.Value, CultureInfo.InvariantCulture);
-                        i = 0;
-                        continue;
-                    }
+            segs.Add(new Segment(ToVec(wa), ToVec(wb)));
+        }
 
-                    sig.Add(prefix + ":" + app + "." + (i++).ToString(CultureInfo.InvariantCulture),
-                        Convert.ToString(tv.Value, CultureInfo.InvariantCulture));
-                }
+        private void AddWorldExtents(Entity ent, Matrix3d xf, List<Segment> segs)
+        {
+            try
+            {
+                AddBoxEdges(ent.GeometricExtents, xf, segs);
+            }
+            catch (System.Exception)
+            {
+                // No extents: contributes nothing.
             }
         }
 
-        // ---------------- geometry ----------------
-
-        private ScaffoldElement BuildGeometry(Entity ent, Matrix3d parent, ElementKind kind)
+        private void AddBoxEdges(Extents3d ext, Matrix3d xf, List<Segment> segs)
         {
-            // Local frame: the block's own coordinate system when available, so that
-            // rotated components still get their true length/width axes.
-            Matrix3d frame = parent;
-            Extents3d? local = null;
-            if (ent is BlockReference br)
-            {
-                local = BlockDefinitionExtents(br.BlockTableRecord);
-                if (local.HasValue)
-                    frame = parent * br.BlockTransform;
-            }
-
-            if (!local.HasValue)
-            {
-                try
-                {
-                    local = ent.GeometricExtents;
-                }
-                catch (System.Exception)
-                {
-                    return null;
-                }
-
-                frame = parent;
-            }
-
-            var min = local.Value.MinPoint;
-            var max = local.Value.MaxPoint;
-            var c = new Point3d((min.X + max.X) / 2, (min.Y + max.Y) / 2, (min.Z + max.Z) / 2);
-            var size = new[] { max.X - min.X, max.Y - min.Y, max.Z - min.Z };
-            var axes = new[] { Vector3d.XAxis, Vector3d.YAxis, Vector3d.ZAxis };
-
-            // World AABB from the 8 transformed corners.
-            double wx0 = double.MaxValue, wy0 = double.MaxValue, wz0 = double.MaxValue;
-            double wx1 = double.MinValue, wy1 = double.MinValue, wz1 = double.MinValue;
+            var min = ext.MinPoint;
+            var max = ext.MaxPoint;
+            var corners = new List<Vec3>(8);
             for (int i = 0; i < 8; i++)
             {
-                var p = new Point3d((i & 1) == 0 ? min.X : max.X, (i & 2) == 0 ? min.Y : max.Y, (i & 4) == 0 ? min.Z : max.Z).TransformBy(frame);
-                wx0 = Math.Min(wx0, p.X); wy0 = Math.Min(wy0, p.Y); wz0 = Math.Min(wz0, p.Z);
-                wx1 = Math.Max(wx1, p.X); wy1 = Math.Max(wy1, p.Y); wz1 = Math.Max(wz1, p.Z);
+                var p = new Point3d((i & 1) == 0 ? min.X : max.X, (i & 2) == 0 ? min.Y : max.Y, (i & 4) == 0 ? min.Z : max.Z);
+                corners.Add(ToVec(p.TransformBy(xf)));
             }
 
-            var e = new ScaffoldElement { ZMin = wz0 * _toMm, ZMax = wz1 * _toMm };
-
-            if (kind == ElementKind.Standard)
-            {
-                double cx = (wx0 + wx1) / 2 * _toMm, cy = (wy0 + wy1) / 2 * _toMm;
-                e.Start = new Vec3(cx, cy, e.ZMin);
-                e.End = new Vec3(cx, cy, e.ZMax);
-                e.Width = Math.Max(wx1 - wx0, wy1 - wy0) * _toMm;
-                return e;
-            }
-
-            // Sort local axes by extent: [0] = length axis.
-            var order = new[] { 0, 1, 2 };
-            Array.Sort(order, (a, b) => size[b].CompareTo(size[a]));
-            int lengthAxis = order[0];
-
-            // Width: of the two remaining axes, the more horizontal one in world space.
-            int widthAxis = order[1];
-            var w1 = axes[order[1]].TransformBy(frame);
-            var w2 = axes[order[2]].TransformBy(frame);
-            if (kind == ElementKind.Beam && Math.Abs(w2.GetNormal().Z) < Math.Abs(w1.GetNormal().Z))
-                widthAxis = order[2];
-
-            var half = axes[lengthAxis] * (size[lengthAxis] / 2);
-            e.Start = ToVec((c - half).TransformBy(frame));
-            e.End = ToVec((c + half).TransformBy(frame));
-
-            var halfW = axes[widthAxis] * (size[widthAxis] / 2);
-            e.Width = (c + halfW).TransformBy(frame).DistanceTo((c - halfW).TransformBy(frame)) * _toMm;
-            return e;
+            foreach (var s in ShapeAnalyzer.BoxEdges(corners))
+                if (s.Length > 1e-3)
+                    segs.Add(s);
         }
 
         private Vec3 ToVec(Point3d p) => new Vec3(p.X * _toMm, p.Y * _toMm, p.Z * _toMm);
@@ -299,6 +351,115 @@ namespace BeamCheck.Cad
 
             _blockExtents[btrId] = ext;
             return ext;
+        }
+
+        // ---------------- signature ----------------
+
+        public static string DxfName(Entity ent)
+        {
+            try
+            {
+                return ent.GetRXClass().DxfName;
+            }
+            catch (System.Exception)
+            {
+                return null;
+            }
+        }
+
+        public static ElementSignature ReadSignature(Transaction tr, Entity ent)
+        {
+            var sig = new ElementSignature
+            {
+                Handle = ent.Handle.ToString(),
+                EntityType = ent.GetType().Name,
+                Layer = ent.Layer,
+                DxfName = DxfName(ent),
+            };
+
+            if (ent is BlockReference br)
+            {
+                sig.BlockName = EffectiveName(tr, br);
+
+                foreach (ObjectId attId in br.AttributeCollection)
+                {
+                    if (tr.GetObject(attId, OpenMode.ForRead) is AttributeReference ar)
+                        sig.Add("ATTR:" + ar.Tag, ar.TextString);
+                }
+
+                var btr = (BlockTableRecord)tr.GetObject(br.BlockTableRecord, OpenMode.ForRead);
+                if (btr.HasAttributeDefinitions)
+                {
+                    foreach (ObjectId id in btr)
+                    {
+                        if (tr.GetObject(id, OpenMode.ForRead) is AttributeDefinition ad && ad.Constant)
+                            sig.Add("ATTR:" + ad.Tag, ad.TextString);
+                    }
+                }
+
+                if (br.IsDynamicBlock)
+                {
+                    foreach (DynamicBlockReferenceProperty p in br.DynamicBlockReferencePropertyCollection)
+                        sig.Add("DYN:" + p.PropertyName, Convert.ToString(p.Value, CultureInfo.InvariantCulture));
+                }
+            }
+
+            AddResultBuffer(sig, "XDATA", ent.XData);
+
+            if (!ent.ExtensionDictionary.IsNull && tr.GetObject(ent.ExtensionDictionary, OpenMode.ForRead) is DBDictionary dict)
+                AddDictionary(tr, sig, "XDICT", dict, 0);
+
+            ComProperties.AddTo(sig, ent);
+            return sig;
+        }
+
+        public static string EffectiveName(Transaction tr, BlockReference br)
+        {
+            try
+            {
+                var btrId = br.IsDynamicBlock ? br.DynamicBlockTableRecord : br.BlockTableRecord;
+                return ((BlockTableRecord)tr.GetObject(btrId, OpenMode.ForRead)).Name;
+            }
+            catch (System.Exception)
+            {
+                // Exploded (non-database-resident) references may not answer IsDynamicBlock.
+                return ((BlockTableRecord)tr.GetObject(br.BlockTableRecord, OpenMode.ForRead)).Name;
+            }
+        }
+
+        private static void AddDictionary(Transaction tr, ElementSignature sig, string prefix, DBDictionary dict, int depth)
+        {
+            foreach (DBDictionaryEntry entry in dict)
+            {
+                var obj = tr.GetObject(entry.Value, OpenMode.ForRead);
+                if (obj is Xrecord xr)
+                    AddResultBuffer(sig, prefix + ":" + entry.Key, xr.Data);
+                else if (obj is DBDictionary sub && depth < 2)
+                    AddDictionary(tr, sig, prefix + ":" + entry.Key, sub, depth + 1);
+            }
+        }
+
+        private static void AddResultBuffer(ElementSignature sig, string prefix, ResultBuffer rb)
+        {
+            if (rb == null)
+                return;
+            using (rb)
+            {
+                string app = "";
+                int i = 0;
+                foreach (TypedValue tv in rb)
+                {
+                    if (tv.TypeCode == (short)DxfCode.ExtendedDataRegAppName)
+                    {
+                        app = Convert.ToString(tv.Value, CultureInfo.InvariantCulture);
+                        i = 0;
+                        continue;
+                    }
+
+                    sig.Add(prefix + ":" + app + "." + (i++).ToString(CultureInfo.InvariantCulture),
+                        Convert.ToString(tv.Value, CultureInfo.InvariantCulture));
+                }
+            }
         }
     }
 }

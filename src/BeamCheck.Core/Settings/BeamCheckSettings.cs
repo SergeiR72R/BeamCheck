@@ -64,6 +64,9 @@ namespace BeamCheck.Core.Settings
         /// <summary>Max gap between beam top and column bottom (base plates, jacks).</summary>
         [DataMember(Order = 26)] public double ColumnOnBeamZTolerance { get; set; }
 
+        /// <summary>Max vertical gap between stacked sections of one column.</summary>
+        [DataMember(Order = 29)] public double ColumnGapTolerance { get; set; }
+
         /// <summary>Decks whose bottom Z differ less than this belong to one level.</summary>
         [DataMember(Order = 27)] public double LevelZTolerance { get; set; }
 
@@ -93,6 +96,37 @@ namespace BeamCheck.Core.Settings
         /// (block name, layer, entity type, attributes, XData…) decides the kind.
         /// </summary>
         [DataMember(Order = 60)] public List<RecognitionRule> Rules { get; set; }
+
+        /// <summary>Recognise unmatched objects by the shape of their axis lines (see ShapeAnalyzer).</summary>
+        [DataMember(Order = 65)] public bool UseShapeRecognition { get; set; }
+
+        /// <summary>Shorter parts (wedges, couplers, base plates) are ignored by shape recognition.</summary>
+        [DataMember(Order = 66)] public double ShapeMinLength { get; set; }
+
+        /// <summary>Max plan size of a standard (vertical part).</summary>
+        [DataMember(Order = 67)] public double ShapeStandardMaxPlan { get; set; }
+
+        [DataMember(Order = 68)] public double ShapeLedgerMaxDz { get; set; }
+
+        [DataMember(Order = 69)] public double ShapeLedgerMaxWidth { get; set; }
+
+        [DataMember(Order = 70)] public double ShapeDeckMaxDz { get; set; }
+
+        [DataMember(Order = 71)] public double ShapeDeckMinWidth { get; set; }
+
+        [DataMember(Order = 72)] public double ShapeDeckMaxWidth { get; set; }
+
+        /// <summary>
+        /// Regex on block names of PERI display blocks; group 1 = article number
+        /// (PERI CAD 24: "PERI_132234_PartDisplayName_3D").
+        /// </summary>
+        [DataMember(Order = 73)] public string PeriDisplayBlockPattern { get; set; }
+
+        /// <summary>Objects whose DXF class name matches are skipped (PERI part groups would double-count their parts).</summary>
+        [DataMember(Order = 75)] public string IgnoreDxfPattern { get; set; }
+
+        /// <summary>Suffix of the PERI display block that holds the part axis lines.</summary>
+        [DataMember(Order = 74)] public string PeriAxisBlockSuffix { get; set; }
 
         /// <summary>Property names (case-insensitive, substring) holding the article number.</summary>
         [DataMember(Order = 61)] public List<string> ArticleKeys { get; set; }
@@ -153,6 +187,7 @@ namespace BeamCheck.Core.Settings
             BeamPlanTolerance = 150;
             ColumnOnBeamZTolerance = 600;
             LevelZTolerance = 150;
+            ColumnGapTolerance = 300;
             SearchRadius = 5000;
 
             StandardKgPerM = 5.5;
@@ -172,10 +207,23 @@ namespace BeamCheck.Core.Settings
                 new RecognitionRule("Ledger", @"(?i)(ledger|riegel|transom|ригел|леджер|(?<![A-Z0-9])(UH[A-Z]?|U[LX])(?![A-Z]))"),
                 new RecognitionRule("Standard", @"(?i)(standard|vertical|stiel|vertikal|стойк|(?<![A-Z0-9])UV[RH](?![A-Z]))"),
             };
-            ArticleKeys = new List<string> { "ARTICLE", "ARTIKEL", "ARTNR", "ART_NO", "ARTNO", "PARTNO", "АРТИКУЛ" };
-            ArticlePattern = @"\b\d{6}\b";
+            // PERI CAD 24 library blocks carry attributes ART, PERI_Beschreibung, Gewicht.
+            ArticleKeys = new List<string> { "ATTR:ART", "ARTICLE", "ARTIKEL", "ARTNR", "ART_NO", "ARTNO", "PARTNO", "АРТИКУЛ" };
+            ArticlePattern = @"(?<![0-9])\d{6}(-\d+)?(?![0-9])";
             WeightKeys = new List<string> { "WEIGHT", "GEWICHT", "MASS", "MASSE", "ВЕС", "МАССА" };
-            DescriptionKeys = new List<string> { "DESCRIPTION", "BEZEICHNUNG", "NAME", "ОПИСАНИЕ", "НАИМЕНОВАНИЕ" };
+            DescriptionKeys = new List<string> { "BESCHREIBUNG", "DESCRIPTION", "BEZEICHNUNG", "BLOCKTEXT", "ОПИСАНИЕ", "НАИМЕНОВАНИЕ" };
+
+            UseShapeRecognition = true;
+            ShapeMinLength = 250;
+            ShapeStandardMaxPlan = 200;
+            ShapeLedgerMaxDz = 150;
+            ShapeLedgerMaxWidth = 80;
+            ShapeDeckMaxDz = 80;
+            ShapeDeckMinWidth = 150;
+            ShapeDeckMaxWidth = 800;
+            PeriDisplayBlockPattern = @"^PERI_(\d{6}(?:-\d+)?)_PartDisplayName_(.+)$";
+            PeriAxisBlockSuffix = "Line";
+            IgnoreDxfPattern = @"(?i)GRUPPE|_GROUP|MANAGER|DISPREP|DISP_REP";
 
             TextHeight = 2.5;
             Scale = 50;

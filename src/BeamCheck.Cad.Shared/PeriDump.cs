@@ -11,9 +11,11 @@ using BeamCheck.Core.Settings;
 #if BRICSCAD
 using Bricscad.ApplicationServices;
 using Teigha.DatabaseServices;
+using Teigha.Geometry;
 #else
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
+using Autodesk.AutoCAD.Geometry;
 #endif
 
 namespace BeamCheck.Cad
@@ -39,7 +41,7 @@ namespace BeamCheck.Cad
 
             using (var tr = db.TransactionManager.StartTransaction())
             {
-                var reader = new CadElementReader(tr, classifier, toMm);
+                var reader = new CadElementReader(tr, db, settings, classifier, toMm);
                 int n = 0;
                 foreach (var id in ids)
                 {
@@ -82,6 +84,15 @@ namespace BeamCheck.Cad
                             el.Id, el.Kind, el.Start, el.End, el.Width, el.ZMin, el.ZMax, el.WeightKg, el.WeightIsEstimated ? " (est.)" : ""));
                     }
 
+                    var segs = new List<BeamCheck.Core.Recognition.Segment>();
+                    string periBlock = null;
+                    reader.CollectSegments(ent, Matrix3d.Identity, segs, ref periBlock, 0);
+                    sb.AppendLine("-- Axis segments (mm): " + segs.Count + "  PERI display block: " + (periBlock ?? "—") +
+                                  "  shape guess: " + new BeamCheck.Core.Recognition.ShapeAnalyzer(settings).Guess(segs));
+                    foreach (var s in segs.Take(12))
+                        sb.AppendLine("   " + s.A + " → " + s.B + string.Format(CultureInfo.InvariantCulture, "  L={0:0}", s.Length));
+                    DumpExplode(tr, sb, ent);
+
                     sb.AppendLine("-- .NET properties:");
                     DumpReflection(sb, ent);
                 }
@@ -104,6 +115,33 @@ namespace BeamCheck.Cad
             }
 
             return path;
+        }
+
+        /// <summary>What the object turns into when exploded (how PERI parts expose their graphics).</summary>
+        private static void DumpExplode(Transaction tr, StringBuilder sb, Entity ent)
+        {
+            if (ent is BlockReference)
+                return;
+            var parts = new DBObjectCollection();
+            try
+            {
+                ent.Explode(parts);
+            }
+            catch (System.Exception ex)
+            {
+                sb.AppendLine("-- Explode: not supported (" + ex.Message + ")");
+                return;
+            }
+
+            sb.AppendLine("-- Explode: " + parts.Count + " object(s)");
+            foreach (DBObject o in parts)
+            {
+                string line = "   " + o.GetType().Name;
+                if (o is BlockReference br)
+                    line += " '" + CadElementReader.EffectiveName(tr, br) + "' pos " + br.Position + " scale " + br.ScaleFactors + " rot " + br.Rotation.ToString("0.####", CultureInfo.InvariantCulture);
+                sb.AppendLine(line);
+                o.Dispose();
+            }
         }
 
         private static void DumpBlockContent(Transaction tr, StringBuilder sb, BlockReference br, int depth)

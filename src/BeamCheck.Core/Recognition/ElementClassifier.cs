@@ -90,7 +90,8 @@ namespace BeamCheck.Core.Recognition
             string text = sig.ToMatchText();
             if (string.IsNullOrEmpty(result.Article) && _articleRegex != null)
             {
-                var m = _articleRegex.Match(text);
+                // Not the layer: PERI layer names contain digit runs too.
+                var m = _articleRegex.Match((sig.BlockName ?? "") + " | " + string.Join(" | ", sig.Properties.Select(p => p.Value)));
                 if (m.Success)
                     result.Article = m.Value;
             }

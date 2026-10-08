@@ -48,9 +48,10 @@ namespace BeamCheck.Core.Analysis
             var topo = new Topology { Beam = input.Beam };
             bool Active(ScaffoldElement e) => e != null && !input.ExcludedIds.Contains(e.Id);
 
-            var all = input.Candidates.Where(Active).ToList();
+            var all = Deduplicate(input.Candidates.Where(Active)).ToList();
+            var ids = new HashSet<string>(all.Select(e => e.Id));
             foreach (var s in input.SelectedStandards.Where(Active))
-                if (all.All(e => e.Id != s.Id))
+                if (ids.Add(s.Id))
                     all.Add(s);
 
             BuildColumns(topo, input.SelectedStandards.Where(Active).ToList(), all.Where(e => e.Kind == ElementKind.Standard).ToList());
@@ -76,6 +77,25 @@ namespace BeamCheck.Core.Analysis
 
             return topo;
         }
+
+        /// <summary>
+        /// Drops geometric duplicates (same kind and axis within ~10 mm), e.g. a part that is
+        /// reachable both directly and through an assembly/group object.
+        /// </summary>
+        private static IEnumerable<ScaffoldElement> Deduplicate(IEnumerable<ScaffoldElement> elements)
+        {
+            var seen = new HashSet<string>();
+            foreach (var e in elements)
+            {
+                string a = Key(e.Start), b = Key(e.End);
+                string key = e.Kind + "|" + (string.CompareOrdinal(a, b) < 0 ? a + "|" + b : b + "|" + a);
+                if (seen.Add(key))
+                    yield return e;
+            }
+        }
+
+        private static string Key(Vec3 p) =>
+            string.Format(CultureInfo.InvariantCulture, "{0:0},{1:0},{2:0}", Math.Round(p.X / 10), Math.Round(p.Y / 10), Math.Round(p.Z / 10));
 
         private void BuildColumns(Topology topo, List<ScaffoldElement> selected, List<ScaffoldElement> standards)
         {
@@ -108,6 +128,9 @@ namespace BeamCheck.Core.Analysis
                     continue;
 
                 col.Sections.Sort((a, b) => a.ZMin.CompareTo(b.ZMin));
+                KeepContinuousStack(col.Sections, beamTop);
+                if (col.Sections.Count == 0)
+                    continue;
                 col.ZBottom = col.Sections.Min(x => x.ZMin);
                 col.ZTop = col.Sections.Max(x => x.ZMax);
                 double ax = col.Sections.Average(x => x.Start.X);
@@ -138,6 +161,34 @@ namespace BeamCheck.Core.Analysis
                         c.Name, c.OffsetFromBeamAxis, c.ZBottom - beamTop));
                 }
             }
+        }
+
+        /// <summary>
+        /// Keeps only the sections stacked continuously upward from the lowest one standing on the beam.
+        /// A gap means the standard above belongs to another structure (it stands on something else).
+        /// </summary>
+        private void KeepContinuousStack(List<ScaffoldElement> sections, double beamTop)
+        {
+            var stack = new List<ScaffoldElement>();
+            double top = double.NaN;
+            foreach (var sec in sections)
+            {
+                if (stack.Count == 0)
+                {
+                    if (sec.ZMin - beamTop > _s.ColumnOnBeamZTolerance)
+                        break;
+                }
+                else if (sec.ZMin > top + _s.ColumnGapTolerance)
+                {
+                    break;
+                }
+
+                stack.Add(sec);
+                top = double.IsNaN(top) ? sec.ZMax : Math.Max(top, sec.ZMax);
+            }
+
+            sections.Clear();
+            sections.AddRange(stack);
         }
 
         private Column FindColumnAt(Topology topo, Vec3 p)

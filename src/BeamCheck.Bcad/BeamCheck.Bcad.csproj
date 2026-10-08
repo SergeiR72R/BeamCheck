@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    PERI CAD 25/26 (BricsCAD-based).
+      BricsCAD V25 and older: .NET Framework 4.8  → net48
+      BricsCAD V26 and newer: .NET 8 (x64 only)  → net8.0-windows
+    BricsCAD's managed assemblies are not on NuGet; they are referenced from the installation:
+      dotnet build src/BeamCheck.Bcad -p:BricsCADDir="C:\Program Files\Bricsys\BricsCAD V26 en_US"
+    Build only one framework:  -f net8.0-windows   or   -f net48
+  -->
+  <PropertyGroup>
+    <TargetFrameworks>net48;net8.0-windows</TargetFrameworks>
+    <AssemblyName>BeamCheck.Bcad</AssemblyName>
+    <RootNamespace>BeamCheck.Cad</RootNamespace>
+    <DefineConstants>$(DefineConstants);BRICSCAD</DefineConstants>
+    <PlatformTarget>x64</PlatformTarget>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <UseWindowsForms Condition="'$(TargetFramework)' != 'net48'">true</UseWindowsForms>
+    <BricsCADDir Condition="'$(BricsCADDir)' == ''">C:\Program Files\Bricsys\BricsCAD V26 en_US</BricsCADDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\BeamCheck.Cad.Shared\**\*.cs" LinkBase="Shared" />
+    <ProjectReference Include="..\BeamCheck.Core\BeamCheck.Core.csproj" />
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+    <Reference Include="BrxMgd">
+      <HintPath>$(BricsCADDir)\BrxMgd.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="TD_Mgd">
+      <HintPath>$(BricsCADDir)\TD_Mgd.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'net48'">
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Drawing" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\deploy\BeamCheck.settings.json" Link="BeamCheck.settings.json" CopyToOutputDirectory="PreserveNewest" Condition="Exists('..\..\deploy\BeamCheck.settings.json')" />
+  </ItemGroup>
+  <Target Name="CheckBricsCAD" BeforeTargets="ResolveAssemblyReferences" Condition="!Exists('$(BricsCADDir)\BrxMgd.dll')">
+    <Error Text="BricsCAD не найден в '$(BricsCADDir)'. Укажите путь: -p:BricsCADDir=&quot;C:\Program Files\Bricsys\BricsCAD V26 en_US&quot;" />
+  </Target>
+</Project>

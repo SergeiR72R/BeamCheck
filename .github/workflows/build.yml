@@ -1,0 +1,20 @@
+name: build
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Core tests
+        run: dotnet test tests/BeamCheck.Core.Tests -c Release
+      - name: PERI CAD 24 / AutoCAD (net48)
+        run: dotnet build src/BeamCheck.Acad -c Release
+      - name: Shared CAD code on .NET 8 (compile check for BricsCAD V26 path)
+        run: dotnet build src/BeamCheck.Acad -c Release -p:AcadTargetFramework=net8.0-windows -p:AutoCADNetVersion=25.1.0 -p:BaseIntermediateOutputPath=obj-net8/ -o out/acad-net8

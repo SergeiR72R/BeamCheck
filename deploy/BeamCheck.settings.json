@@ -1,0 +1,103 @@
+{
+  "LoadClasses": [
+    {
+      "Class": 1,
+      "ServiceLoadKnPerM2": 0.75
+    },
+    {
+      "Class": 2,
+      "ServiceLoadKnPerM2": 1.5
+    },
+    {
+      "Class": 3,
+      "ServiceLoadKnPerM2": 2
+    },
+    {
+      "Class": 4,
+      "ServiceLoadKnPerM2": 3
+    },
+    {
+      "Class": 5,
+      "ServiceLoadKnPerM2": 4.5
+    },
+    {
+      "Class": 6,
+      "ServiceLoadKnPerM2": 6
+    }
+  ],
+  "DefaultLoadClass": 3,
+  "LevelMode": "WorstLevelPlusAdjacent",
+  "MainLevelFactor": 1,
+  "AdjacentLevelFactor": 0.5,
+  "OtherLevelFactor": 0,
+  "GammaG": 1.35,
+  "GammaQ": 1.5,
+  "ShowDesignValues": false,
+  "ColumnXYTolerance": 30,
+  "NodeTolerance": 120,
+  "DeckBearingTolerance": 120,
+  "DeckOverLedgerMin": -100,
+  "DeckOverLedgerMax": 200,
+  "BeamPlanTolerance": 150,
+  "ColumnOnBeamZTolerance": 600,
+  "LevelZTolerance": 150,
+  "SearchRadius": 5000,
+  "StandardKgPerM": 5.5,
+  "LedgerKgPerM": 3.5,
+  "DeckKgPerM2": 22,
+  "DiagonalKgPerM": 3.5,
+  "AccessoryKgPerM": 3,
+  "Catalog": [ ],
+  "Rules": [
+    {
+      "Kind": "Deck",
+      "Pattern": "(?i)(deck|belag|plattform|platform|настил|(?<![A-Z0-9])(UD[IGPLA]|UAP)(?![A-Z]))"
+    },
+    {
+      "Kind": "Diagonal",
+      "Pattern": "(?i)(diagonal|диагонал|(?<![A-Z0-9])(UBL|UVD)(?![A-Z]))"
+    },
+    {
+      "Kind": "Accessory",
+      "Pattern": "(?i)(toe ?board|bordbrett|guard ?rail|gel[aä]nder|ограж|борт)"
+    },
+    {
+      "Kind": "Ledger",
+      "Pattern": "(?i)(ledger|riegel|transom|ригел|леджер|(?<![A-Z0-9])(UH[A-Z]?|U[LX])(?![A-Z]))"
+    },
+    {
+      "Kind": "Standard",
+      "Pattern": "(?i)(standard|vertical|stiel|vertikal|стойк|(?<![A-Z0-9])UV[RH](?![A-Z]))"
+    }
+  ],
+  "ArticleKeys": [
+    "ARTICLE",
+    "ARTIKEL",
+    "ARTNR",
+    "ART_NO",
+    "ARTNO",
+    "PARTNO",
+    "АРТИКУЛ"
+  ],
+  "ArticlePattern": "\\b\\d{6}\\b",
+  "WeightKeys": [
+    "WEIGHT",
+    "GEWICHT",
+    "MASS",
+    "MASSE",
+    "ВЕС",
+    "МАССА"
+  ],
+  "DescriptionKeys": [
+    "DESCRIPTION",
+    "BEZEICHNUNG",
+    "NAME",
+    "ОПИСАНИЕ",
+    "НАИМЕНОВАНИЕ"
+  ],
+  "TextHeight": 2.5,
+  "Scale": 50,
+  "Layer": "BEAMLOAD",
+  "DecimalSeparator": ",",
+  "FallbackUnitToMm": 1
+}

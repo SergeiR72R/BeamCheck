@@ -1,0 +1,8 @@
+bin/
+obj/
+*.user
+.vs/
+artifacts/
+obj-net8/
+out/
+dist/

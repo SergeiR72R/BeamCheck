@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- CAD-independent model and calculation. netstandard2.0 so it loads in both
+       .NET Framework 4.8 (AutoCAD 2024 / BricsCAD V25) and .NET 8 hosts. -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <RootNamespace>BeamCheck.Core</RootNamespace>
+  </PropertyGroup>
+</Project>

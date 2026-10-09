@@ -15,7 +15,7 @@ namespace BeamCheck.Core.Tests
         private static double InnerStandLoad(double fieldLengthMm, double widthMm, int loadClass)
         {
             var b = ScaffoldBuilder.Custom(new[] { 1000.0, 1000.0 + fieldLengthMm, 1000.0 + 2 * fieldLengthMm }, widthMm, 2000, 4000);
-            var session = new BeamLoadSession(new BeamCheckSettings(), b.Input());
+            var session = new BeamLoadSession(new BeamCheckSettings { LevelMode = LevelModes.WorstLevelPlusAdjacent }, b.Input());
             session.Options.LoadClass = loadClass;
             session.Recalculate();
             var middle = session.Result.Points.Single(p => System.Math.Abs(p.Position - (1000 + fieldLengthMm)) < 1);

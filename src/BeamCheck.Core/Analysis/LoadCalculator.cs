@@ -47,6 +47,19 @@ namespace BeamCheck.Core.Analysis
         public List<LevelLoad> Levels { get; } = new List<LevelLoad>();
 
         public bool HasEstimatedWeights { get; set; }
+
+        /// <summary>Part of Gk that arrives through upper beams (from stands standing on them), kN.</summary>
+        public double TransferGk { get; set; }
+
+        /// <summary>Part of Qk that arrives through upper beams, kN.</summary>
+        public double TransferQk { get; set; }
+
+        public double TransferFk => TransferGk + TransferQk;
+
+        /// <summary>Top of the column, mm (Z).</summary>
+        public double ZTop => Column.ZTop;
+
+        public int SectionCount => Column.Sections.Count;
     }
 
     public sealed class BeamLoadResult
@@ -183,12 +196,14 @@ namespace BeamCheck.Core.Analysis
                     HasEstimatedWeights = contribs.Any(c => c.Source.WeightIsEstimated),
                 };
 
+                p.TransferGk = KgToKn(contribs.Where(c => c.ViaBeam != null).Sum(c => c.WeightKg));
                 foreach (var level in topo.Levels)
                 {
                     var lc = contribs.Where(c => c.Type == ContributionType.Deck && c.Level == level).ToList();
                     if (lc.Count == 0)
                         continue;
                     o.LevelFactors.TryGetValue(level.Index, out double f);
+                    p.TransferQk += q * lc.Where(c => c.ViaBeam != null).Sum(c => c.AreaM2) * f;
                     double area = lc.Sum(c => c.AreaM2);
                     p.Levels.Add(new LevelLoad
                     {

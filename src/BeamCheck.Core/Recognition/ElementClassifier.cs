@@ -135,6 +135,7 @@ namespace BeamCheck.Core.Recognition
                 case ElementKind.Deck: return _settings.DeckKgPerM2 * m * widthMm / 1000.0;
                 case ElementKind.Diagonal: return _settings.DiagonalKgPerM * m;
                 case ElementKind.Accessory: return _settings.AccessoryKgPerM * m;
+                case ElementKind.Beam: return _settings.BeamKgPerM * m;
                 default: return 0;
             }
         }

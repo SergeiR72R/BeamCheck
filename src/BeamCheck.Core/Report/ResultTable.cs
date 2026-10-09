@@ -26,10 +26,13 @@ namespace BeamCheck.Core.Report
                         + ", L = " + f.Mm(r.BeamLength) + " мм",
             };
 
+            bool transfer = r.Points.Any(p => p.TransferFk > 0.005);
             t.Header.AddRange(new[] { "Стойка", "X, мм", "A, м²", "Gk, кН", "Qk, кН", "Fk, кН", "Fd, кН" });
+            if (transfer)
+                t.Header.Add("в т.ч. с верх. балок Fk, кН");
             foreach (var p in r.Points)
             {
-                t.Rows.Add(new List<string>
+                var row = new List<string>
                 {
                     p.Name,
                     f.Mm(p.Position),
@@ -38,10 +41,13 @@ namespace BeamCheck.Core.Report
                     f.Num(p.Qk, 2),
                     f.Num(p.Fk, 2),
                     f.Num(p.Fd, 2),
-                });
+                };
+                if (transfer)
+                    row.Add(f.Num(p.TransferFk, 2));
+                t.Rows.Add(row);
             }
 
-            t.Rows.Add(new List<string>
+            var sum = new List<string>
             {
                 "Σ",
                 "",
@@ -50,7 +56,10 @@ namespace BeamCheck.Core.Report
                 f.Num(r.Points.Sum(p => p.Qk), 2),
                 f.Num(r.Points.Sum(p => p.Fk), 2),
                 f.Num(r.Points.Sum(p => p.Fd), 2),
-            });
+            };
+            if (transfer)
+                sum.Add(f.Num(r.Points.Sum(p => p.TransferFk), 2));
+            t.Rows.Add(sum);
 
             t.Notes.Add("Класс нагрузки " + r.LoadClass + " (EN 12811-1): q = " + f.Num(r.ServiceLoad, 2) + " кН/м²");
             var levelNotes = r.Points.SelectMany(p => p.Levels)

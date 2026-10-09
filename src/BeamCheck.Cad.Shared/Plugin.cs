@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using BeamCheck.Core.Settings;
 #if BRICSCAD
@@ -81,6 +81,23 @@ namespace BeamCheck.Cad
             CopyIfMissing(BundledWeightsPath, UserWeightsPath);
 
             var settings = SettingsStore.LoadOrCreate(out path, UserSettingsPath, BundledSettingsPath);
+            if (settings.SettingsVersion < BeamCheckSettings.CurrentVersion && path != null)
+            {
+                // Older defaults (recognition rules, level mode) must not outlive a program update:
+                // keep the old file as .bak and start from the new defaults.
+                try
+                {
+                    File.Copy(path, path + ".v" + settings.SettingsVersion + ".bak", true);
+                    settings = new BeamCheckSettings();
+                    SettingsStore.Save(settings, path);
+                    Log("settings " + path + " upgraded to version " + BeamCheckSettings.CurrentVersion);
+                }
+                catch (System.Exception ex)
+                {
+                    Log("settings upgrade failed: " + ex.Message);
+                }
+            }
+
             // The editable weight table in %APPDATA% wins over the shipped one.
             CatalogCsv.Merge(settings, BundledWeightsPath);
             CatalogCsv.Merge(settings, UserWeightsPath);

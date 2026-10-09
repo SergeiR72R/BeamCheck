@@ -66,6 +66,13 @@ namespace BeamCheck.Cad
             if (psr.Status != PromptStatus.OK)
                 return;
 
+            var upperPrompt = new PromptSelectionOptions
+            {
+                MessageForAdding = "\nВыберите вышестоящие балки, которые опираются на эти стойки и несут другие стойки (Enter — не выбирать, найти автоматически): ",
+            };
+            var upperRes = ed.GetSelection(upperPrompt);
+            var upperSel = upperRes.Status == PromptStatus.OK ? upperRes.Value.GetObjectIds() : null;
+
             var idMap = new Dictionary<string, ObjectId>();
             BeamLoadSession session;
             using (var tr = db.TransactionManager.StartTransaction())
@@ -101,7 +108,22 @@ namespace BeamCheck.Cad
                     return;
                 }
 
-                var candidates = ScanCandidates(tr, db, reader, beam, selected, settings, toMm);
+                // Beams standing on the columns (or on the stands above) pass their load down; the user may pick
+                // them explicitly, the rest are found by name rules and by position.
+                var manualBeams = new List<ScaffoldElement>();
+                if (upperSel != null)
+                {
+                    foreach (var id in upperSel)
+                    {
+                        var ub = reader.Read((Entity)tr.GetObject(id, OpenMode.ForRead), ElementKind.Beam);
+                        manualBeams.AddRange(ub);
+                    }
+                }
+
+                var candidates = ScanCandidates(tr, db, reader, beam, selected, manualBeams, settings, toMm);
+                foreach (var mb in manualBeams)
+                    if (candidates.All(c => c.Id != mb.Id))
+                        candidates.Add(mb);
                 ed.WriteMessage($"\nНайдено элементов вокруг стоек: {candidates.Count} " +
                                 $"(стоек {candidates.Count(c => c.Kind == ElementKind.Standard)}, " +
                                 $"леджеров {candidates.Count(c => c.Kind == ElementKind.Ledger)}, " +
@@ -212,11 +234,12 @@ namespace BeamCheck.Cad
 
         /// <summary>All recognised elements in model space within the search radius of the selected standards.</summary>
         private static List<ScaffoldElement> ScanCandidates(Transaction tr, Database db, CadElementReader reader, ScaffoldElement beam,
-            List<ScaffoldElement> selected, BeamCheckSettings settings, double toMm)
+            List<ScaffoldElement> selected, List<ScaffoldElement> extra, BeamCheckSettings settings, double toMm)
         {
             double r = settings.SearchRadius;
-            double x0 = selected.Min(s => s.Start.X) - r, x1 = selected.Max(s => s.Start.X) + r;
-            double y0 = selected.Min(s => s.Start.Y) - r, y1 = selected.Max(s => s.Start.Y) + r;
+            var pts = selected.Select(s => s.Start).Concat(extra.SelectMany(b => new[] { b.Start, b.End })).ToList();
+            double x0 = pts.Min(p => p.X) - r, x1 = pts.Max(p => p.X) + r;
+            double y0 = pts.Min(p => p.Y) - r, y1 = pts.Max(p => p.Y) + r;
             double zMin = beam.ZMin - r;
 
             var result = new List<ScaffoldElement>();
@@ -241,7 +264,7 @@ namespace BeamCheck.Cad
                     continue;
 
                 foreach (var e in reader.Read(ent))
-                    if (e.Kind != ElementKind.Beam)
+                    if (e.Id != beam.Id)
                         result.Add(e);
             }
 

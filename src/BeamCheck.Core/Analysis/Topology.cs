@@ -26,6 +26,14 @@ namespace BeamCheck.Core.Analysis
 
         public bool OnBeam { get; set; }
 
+        /// <summary>
+        /// Null for columns standing on the beam under check. For columns standing on an upper beam
+        /// (carried by lower columns) this is that beam; <see cref="Position"/> is then measured along it.
+        /// </summary>
+        public ScaffoldElement SupportBeam { get; set; }
+
+        public bool IsMain => SupportBeam == null;
+
         public override string ToString() => $"{Name} @ {Position:0} mm";
     }
 
@@ -49,6 +57,8 @@ namespace BeamCheck.Core.Analysis
         LedgerSelfWeight,
         /// <summary>Own weight of a diagonal or accessory connected to the column.</summary>
         OtherSelfWeight,
+        /// <summary>Own weight of an upper beam, shared among the columns that carry it.</summary>
+        BeamSelfWeight,
         /// <summary>Deck: own weight and service-load area, transferred via a ledger.</summary>
         Deck,
     }
@@ -67,6 +77,13 @@ namespace BeamCheck.Core.Analysis
 
         /// <summary>Only set for decks.</summary>
         public Level Level { get; set; }
+
+        /// <summary>
+        /// The upper beam through which this load reaches the column (null = comes straight down the column).
+        /// </summary>
+        public ScaffoldElement ViaBeam { get; set; }
+
+        public Contribution Clone() => (Contribution)MemberwiseClone();
 
         /// <summary>Fraction (0..1) of the source element carried by this column.</summary>
         public double Share { get; set; }
@@ -88,11 +105,37 @@ namespace BeamCheck.Core.Analysis
 
         public List<Level> Levels { get; } = new List<Level>();
 
+        /// <summary>Upper beams that carry stands and rest on the columns (load is passed down through them).</summary>
+        public List<BeamLink> UpperBeams { get; } = new List<BeamLink>();
+
         public List<Contribution> Contributions { get; } = new List<Contribution>();
 
         public List<string> Warnings { get; } = new List<string>();
 
         /// <summary>IDs of all elements that contribute (for highlighting in CAD).</summary>
         public HashSet<string> UsedElementIds { get; } = new HashSet<string>();
+    }
+}
+
+namespace BeamCheck.Core.Analysis
+{
+    /// <summary>One support of an upper beam: the column carrying it (null if it is outside the selection).</summary>
+    public sealed class BeamSupport
+    {
+        public Column Column { get; set; }
+
+        /// <summary>Position along the beam, mm.</summary>
+        public double Position { get; set; }
+    }
+
+    /// <summary>An upper beam, the columns that carry it and the columns standing on it.</summary>
+    public sealed class BeamLink
+    {
+        public ScaffoldElement Beam { get; set; }
+
+        /// <summary>Sorted by position.</summary>
+        public List<BeamSupport> Supports { get; } = new List<BeamSupport>();
+
+        public List<Column> Loaded { get; } = new List<Column>();
     }
 }

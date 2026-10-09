@@ -16,6 +16,11 @@ namespace BeamCheck.Core.Settings
             SetDefaults();
         }
 
+        /// <summary>Bumped when defaults change in a way old settings files must not keep.</summary>
+        public const int CurrentVersion = 2;
+
+        [DataMember(Order = 0)] public int SettingsVersion { get; set; }
+
         // ---------- Loads ----------
 
         /// <summary>Service load classes per EN 12811-1, table 3 (uniformly distributed load).</summary>
@@ -64,6 +69,9 @@ namespace BeamCheck.Core.Settings
         /// <summary>Max gap between beam top and column bottom (base plates, jacks).</summary>
         [DataMember(Order = 26)] public double ColumnOnBeamZTolerance { get; set; }
 
+        /// <summary>How far above the stack top an upper beam may sit and still count as carried by it.</summary>
+        [DataMember(Order = 30)] public double UpperBeamBearingTolerance { get; set; }
+
         /// <summary>Max vertical gap between stacked sections of one column.</summary>
         [DataMember(Order = 29)] public double ColumnGapTolerance { get; set; }
 
@@ -85,6 +93,9 @@ namespace BeamCheck.Core.Settings
         [DataMember(Order = 43)] public double DiagonalKgPerM { get; set; }
 
         [DataMember(Order = 44)] public double AccessoryKgPerM { get; set; }
+
+        /// <summary>Upper beams of unknown weight: 0 = not counted (a warning is shown).</summary>
+        [DataMember(Order = 46)] public double BeamKgPerM { get; set; }
 
         /// <summary>Article number → weight/kind overrides.</summary>
         [DataMember(Order = 45)] public List<CatalogItem> Catalog { get; set; }
@@ -157,7 +168,11 @@ namespace BeamCheck.Core.Settings
         [DataMember(Order = 84)] public double FallbackUnitToMm { get; set; }
 
         [OnDeserializing]
-        private void OnDeserializing(StreamingContext context) => SetDefaults();
+        private void OnDeserializing(StreamingContext context)
+        {
+            SetDefaults();
+            SettingsVersion = 0; // a file without a version is older than any version this code knows
+        }
 
         private void SetDefaults()
         {
@@ -171,7 +186,8 @@ namespace BeamCheck.Core.Settings
                 new LoadClassDefinition(6, 6.00),
             };
             DefaultLoadClass = 3;
-            LevelMode = LevelModes.WorstLevelPlusAdjacent;
+            SettingsVersion = CurrentVersion;
+            LevelMode = LevelModes.AllLevels;
             MainLevelFactor = 1.0;
             AdjacentLevelFactor = 0.5;
             OtherLevelFactor = 0.0;
@@ -188,6 +204,7 @@ namespace BeamCheck.Core.Settings
             ColumnOnBeamZTolerance = 600;
             LevelZTolerance = 150;
             ColumnGapTolerance = 300;
+            UpperBeamBearingTolerance = 400;
             SearchRadius = 5000;
 
             StandardKgPerM = 5.5;
@@ -201,6 +218,7 @@ namespace BeamCheck.Core.Settings
             // Defaults are educated guesses; adjust them to PERI CAD data after running PERIDUMP.
             Rules = new List<RecognitionRule>
             {
+                new RecognitionRule("Beam", @"(?i)(gitterträger|gittertraeger|multiträger|multitraeger|träger|traeger|girder|балк|двутавр|(?<![A-Z0-9])(ULS|ULA|ELM|VT ?20|GT ?24|HEB|HEA|IPE|UPE)(?![A-Z]))"),
                 new RecognitionRule("Deck", @"(?i)(deck|belag|plattform|platform|настил|(?<![A-Z0-9])(UD[IGPLA]|UAP)(?![A-Z]))"),
                 new RecognitionRule("Diagonal", @"(?i)(diagonal|диагонал|(?<![A-Z0-9])(UBL|UVD)(?![A-Z]))"),
                 new RecognitionRule("Accessory", @"(?i)(toe ?board|bordbrett|guard ?rail|gel[aä]nder|ограж|борт)"),

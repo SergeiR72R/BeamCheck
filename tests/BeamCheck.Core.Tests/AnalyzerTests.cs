@@ -92,7 +92,7 @@ namespace BeamCheck.Core.Tests
         public void Worst_level_gets_full_load_and_neighbours_half()
         {
             var b = ScaffoldBuilder.Example(2000, 4000, 6000);
-            var session = new BeamLoadSession(new BeamCheckSettings(), b.Input());
+            var session = new BeamLoadSession(new BeamCheckSettings { LevelMode = LevelModes.WorstLevelPlusAdjacent }, b.Input());
 
             // All levels are equal: the top-most one is chosen as governing.
             Assert.Equal(0.0, session.Options.LevelFactors[1]);
@@ -169,7 +169,7 @@ namespace BeamCheck.Core.Tests
             input.ExcludedIds.Add(lowDecks[1].Id);
             input.ExcludedIds.Add(lowDecks[2].Id);
 
-            var session = new BeamLoadSession(new BeamCheckSettings(), input);
+            var session = new BeamLoadSession(new BeamCheckSettings { LevelMode = LevelModes.WorstLevelPlusAdjacent }, input);
             var f = session.Options.LevelFactors;
 
             Assert.Equal(3, f.Count);

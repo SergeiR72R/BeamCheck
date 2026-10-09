@@ -79,7 +79,7 @@ namespace BeamCheck.Cad.UI
             foreach (var c in _session.Settings.LoadClasses)
                 _loadClass.Items.Add(new ClassItem(c, _nf));
             _levelMode = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 260 };
-            _levelMode.Items.AddRange(new object[] { "Расчётный ярус 100% + один соседний 50% (EN 12811-1)", "Все ярусы 100%" });
+            _levelMode.Items.AddRange(new object[] { "Расчётный ярус 100% + один соседний 50% (EN 12811-1)", "Все ярусы 100% (до верха стойки)" });
             _gammaG = Num(1.35m);
             _gammaQ = Num(1.5m);
             _showDesign = new CheckBox { Text = "На схеме — расчётные Fd", AutoSize = true, Margin = new Padding(12, 6, 3, 3) };
@@ -104,9 +104,9 @@ namespace BeamCheck.Cad.UI
             root.Controls.Add(Group("Ярусы (коэффициент можно редактировать)", _levels));
 
             _results = Grid();
-            foreach (var h in new[] { "Стойка", "X, мм", "A, м²", "Gk, кН", "Qk, кН", "Fk, кН", "Fd, кН", "По ярусам" })
+            foreach (var h in new[] { "Стойка", "X, мм", "A, м²", "Gk, кН", "Qk, кН", "Fk, кН", "Fd, кН", "С верх. балок, кН", "Высота до Z, мм", "Секций", "По ярусам" })
                 _results.Columns.Add(h, h);
-            _results.Columns[7].AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
+            _results.Columns[10].AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
             foreach (DataGridViewColumn c in _results.Columns)
                 c.ReadOnly = true;
             root.Controls.Add(Group("Нагрузки на балку", _results));
@@ -207,8 +207,8 @@ namespace BeamCheck.Cad.UI
         {
             var r = _session.Result;
             var topo = _session.Topology;
-            _info.Text = string.Format("Балка: {0}   L = {1} мм   стоек: {2}   ярусов: {3}   учтено объектов: {4}",
-                string.IsNullOrEmpty(r.BeamName) ? "—" : r.BeamName, _nf.Mm(r.BeamLength), topo.Columns.Count, topo.Levels.Count, topo.UsedElementIds.Count);
+            _info.Text = string.Format("Балка: {0}   L = {1} мм   стоек: {2}   ярусов: {3}   верхних балок: {4}   учтено объектов: {5}",
+                string.IsNullOrEmpty(r.BeamName) ? "—" : r.BeamName, _nf.Mm(r.BeamLength), topo.Columns.Count, topo.Levels.Count, topo.UpperBeams.Count, topo.UsedElementIds.Count);
 
             _results.Rows.Clear();
             foreach (var p in r.Points)
@@ -216,7 +216,7 @@ namespace BeamCheck.Cad.UI
                 string perLevel = string.Join("; ", p.Levels.Select(l =>
                     $"{l.Level.Index}: {_nf.Num(l.AreaM2, 2)} м² × {_nf.Num(l.Factor * 100, 0)}% → Q {_nf.Num(l.Qk, 2)}, G дек {_nf.Num(l.DeckGk, 2)}"));
                 _results.Rows.Add(p.Name, _nf.Mm(p.Position), _nf.Num(p.AreaM2, 2), _nf.Num(p.Gk, 2), _nf.Num(p.Qk, 2),
-                    _nf.Num(p.Fk, 2), _nf.Num(p.Fd, 2), perLevel);
+                    _nf.Num(p.Fk, 2), _nf.Num(p.Fd, 2), _nf.Num(p.TransferFk, 2), _nf.Mm(p.ZTop), p.SectionCount, perLevel);
             }
 
             _warnings.Text = r.Warnings.Count == 0 ? "Замечаний нет." : string.Join(Environment.NewLine, r.Warnings.Distinct());

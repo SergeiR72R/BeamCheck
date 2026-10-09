@@ -1,6 +1,7 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Text.RegularExpressions;
 using BeamCheck.Core.Geometry;
 using BeamCheck.Core.Model;
@@ -78,6 +79,66 @@ namespace BeamCheck.Cad
                 return list;
             Read(ent, Matrix3d.Identity, ent.Handle.ToString(), ent.ObjectId, forcedKind, 0, list);
             return list;
+        }
+
+        /// <summary>
+        /// Reads an object the user picked as a standard. PERI part groups (normally skipped to avoid
+        /// double counting) are taken apart into their members; anything else is classified, and an
+        /// unrecognised object is taken as a standard because the user said so.
+        /// </summary>
+        public List<ScaffoldElement> ReadPickedStandards(Entity ent, out string info)
+        {
+            var list = new List<ScaffoldElement>();
+            string cls = DxfName(ent) ?? ent.GetType().Name;
+            if (IsIgnored(ent))
+            {
+                var parts = new DBObjectCollection();
+                try
+                {
+                    ent.Explode(parts);
+                }
+                catch (System.Exception ex)
+                {
+                    info = cls + ": группа, разобрать не удалось (" + ex.Message + ")";
+                    return list;
+                }
+
+                int i = 0;
+                foreach (DBObject o in parts)
+                {
+                    try
+                    {
+                        if (o is Entity child)
+                            Read(child, Matrix3d.Identity, ent.Handle + "/g" + (i++), ent.ObjectId, null, 1, list);
+                    }
+                    catch (System.Exception)
+                    {
+                        // A member that cannot be read is skipped.
+                    }
+                    finally
+                    {
+                        o.Dispose();
+                    }
+                }
+
+                var stdsInGroup = list.Where(x => x.Kind == ElementKind.Standard).ToList();
+                info = cls + ": группа из " + parts.Count + " объектов → " + string.Join(", ", list.GroupBy(x => x.Kind).Select(g => g.Key + "×" + g.Count()));
+                return stdsInGroup;
+            }
+
+            var found = Read(ent).Where(x => x.Kind == ElementKind.Standard).ToList();
+            if (found.Count == 0)
+            {
+                var asKind = Read(ent);
+                found = Read(ent, ElementKind.Standard);
+                info = cls + ": распознано как " + (asKind.Count == 0 ? "не определено" : asKind[0].Kind.ToString()) + ", принято как стойка по выбору пользователя";
+            }
+            else
+            {
+                info = cls + ": " + found[0].DisplayName;
+            }
+
+            return found;
         }
 
         public bool IsIgnored(Entity ent)

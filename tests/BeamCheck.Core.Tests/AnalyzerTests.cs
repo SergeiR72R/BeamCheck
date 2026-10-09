@@ -183,3 +183,32 @@ namespace BeamCheck.Core.Tests
         }
     }
 }
+
+namespace BeamCheck.Core.Tests
+{
+    public class WhyNoColumnsTests
+    {
+        [Fact]
+        public void Standard_far_above_the_beam_is_explained()
+        {
+            var b = ScaffoldBuilder.Example(2000);
+            b.Beam.ZMax = -3000;
+            b.Beam.ZMin = -3200;
+            var s = new BeamLoadSession(new BeamCheckSettings(), b.Input());
+
+            Assert.Empty(s.Topology.Columns);
+            Assert.Contains(s.Result.Warnings, w => w.Contains("выше верха балки"));
+        }
+
+        [Fact]
+        public void Standard_below_the_beam_is_explained()
+        {
+            var b = ScaffoldBuilder.Example(2000);
+            b.Beam.ZMax = 9000;
+            var s = new BeamLoadSession(new BeamCheckSettings(), b.Input());
+
+            Assert.Empty(s.Topology.Columns);
+            Assert.Contains(s.Result.Warnings, w => w.Contains("ниже верха балки"));
+        }
+    }
+}

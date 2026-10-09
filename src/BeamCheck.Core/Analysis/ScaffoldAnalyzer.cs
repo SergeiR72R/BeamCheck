@@ -48,11 +48,12 @@ namespace BeamCheck.Core.Analysis
             var topo = new Topology { Beam = input.Beam };
             bool Active(ScaffoldElement e) => e != null && !input.ExcludedIds.Contains(e.Id);
 
-            var all = Deduplicate(input.Candidates.Where(Active)).ToList();
-            var ids = new HashSet<string>(all.Select(e => e.Id));
+            var combined = input.Candidates.Where(Active).ToList();
+            var ids = new HashSet<string>(combined.Select(e => e.Id));
             foreach (var s in input.SelectedStandards.Where(Active))
                 if (ids.Add(s.Id))
-                    all.Add(s);
+                    combined.Add(s);
+            var all = Deduplicate(combined).ToList();
 
             BuildColumns(topo, input.SelectedStandards.Where(Active).ToList(), all.Where(e => e.Kind == ElementKind.Standard).ToList());
             if (topo.Columns.Count == 0)
@@ -125,12 +126,26 @@ namespace BeamCheck.Core.Analysis
                 }
 
                 if (col.Sections.Count == 0)
+                {
+                    var here = standards.Where(st => Vec3.DistanceXY(st.Start, seed) <= tol).ToList();
+                    topo.Warnings.Add(here.Count == 0
+                        ? string.Format(CultureInfo.InvariantCulture, "Стойка в точке ({0:0}; {1:0}): секции не найдены среди распознанных элементов.", seed.X, seed.Y)
+                        : string.Format(CultureInfo.InvariantCulture,
+                            "Стойка в точке ({0:0}; {1:0}) целиком ниже верха балки: Z {2:0}..{3:0} мм, верх балки {4:0} мм — проверьте, какую балку выбрали.",
+                            seed.X, seed.Y, here.Min(h => h.ZMin), here.Max(h => h.ZMax), beamTop));
                     continue;
+                }
 
                 col.Sections.Sort((a, b) => a.ZMin.CompareTo(b.ZMin));
+                double lowest = col.Sections[0].ZMin;
                 KeepContinuousStack(col.Sections, beamTop);
                 if (col.Sections.Count == 0)
+                {
+                    topo.Warnings.Add(string.Format(CultureInfo.InvariantCulture,
+                        "Стойка в точке ({0:0}; {1:0}): низ стойки на {2:0} мм выше верха балки (допуск {3:0} мм) — стойка не опирается на балку.",
+                        seed.X, seed.Y, lowest - beamTop, _s.ColumnOnBeamZTolerance));
                     continue;
+                }
                 col.ZBottom = col.Sections.Min(x => x.ZMin);
                 col.ZTop = col.Sections.Max(x => x.ZMax);
                 double ax = col.Sections.Average(x => x.Start.X);

@@ -1,4 +1,5 @@
-using System;
+﻿using System;
+using System.Globalization;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -78,14 +79,19 @@ namespace BeamCheck.Cad
                     return;
                 }
 
+                ed.WriteMessage(string.Format(CultureInfo.InvariantCulture,
+                    "\nБалка: {0}  ось {1} → {2}  L={3:0} мм  ширина {4:0}  верх Z={5:0}",
+                    beam.DisplayName, beam.Start, beam.End, beam.PlanLength, beam.Width, beam.ZMax));
+
                 var selected = new List<ScaffoldElement>();
+                int shown = 0;
                 foreach (SelectedObject so in psr.Value)
                 {
                     var ent = (Entity)tr.GetObject(so.ObjectId, OpenMode.ForRead);
-                    var found = reader.Read(ent).Where(x => x.Kind == ElementKind.Standard).ToList();
-                    // The user explicitly picked it: take an unrecognised object as a standard.
-                    if (found.Count == 0)
-                        found = reader.Read(ent, ElementKind.Standard);
+                    var found = reader.ReadPickedStandards(ent, out string info);
+                    if (shown++ < 15)
+                        ed.WriteMessage("\n  выбрано " + ent.Handle + " " + info + " → стоек: " + found.Count +
+                                        string.Concat(found.Take(3).Select(f => string.Format(CultureInfo.InvariantCulture, "  [X={0:0} Y={1:0} Z {2:0}..{3:0}]", f.Start.X, f.Start.Y, f.ZMin, f.ZMax))));
                     selected.AddRange(found);
                 }
 

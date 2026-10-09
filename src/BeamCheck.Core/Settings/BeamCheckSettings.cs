@@ -208,10 +208,10 @@ namespace BeamCheck.Core.Settings
                 new RecognitionRule("Standard", @"(?i)(standard|vertical|stiel|vertikal|стойк|(?<![A-Z0-9])UV[RH](?![A-Z]))"),
             };
             // PERI CAD 24 library blocks carry attributes ART, PERI_Beschreibung, Gewicht.
-            ArticleKeys = new List<string> { "ATTR:ART", "ARTICLE", "ARTIKEL", "ARTNR", "ART_NO", "ARTNO", "PARTNO", "АРТИКУЛ" };
+            ArticleKeys = new List<string> { "PART:ARTNR", "ATTR:ART", "ARTICLE", "ARTIKEL", "ARTNR", "ART_NO", "ARTNO", "PARTNO", "АРТИКУЛ" };
             ArticlePattern = @"(?<![0-9])\d{6}(-\d+)?(?![0-9])";
             WeightKeys = new List<string> { "WEIGHT", "GEWICHT", "MASS", "MASSE", "ВЕС", "МАССА" };
-            DescriptionKeys = new List<string> { "BESCHREIBUNG", "DESCRIPTION", "BEZEICHNUNG", "BLOCKTEXT", "ОПИСАНИЕ", "НАИМЕНОВАНИЕ" };
+            DescriptionKeys = new List<string> { "PART:NAME", "BESCHREIBUNG", "DESCRIPTION", "BEZEICHNUNG", "BLOCKTEXT", "ОПИСАНИЕ", "НАИМЕНОВАНИЕ" };
 
             UseShapeRecognition = true;
             ShapeMinLength = 250;

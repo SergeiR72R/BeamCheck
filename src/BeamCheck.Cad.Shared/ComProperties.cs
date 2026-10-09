@@ -1,6 +1,9 @@
 using System;
+using System.Collections;
 using System.ComponentModel;
 using System.Globalization;
+using System.Linq;
+using System.Reflection;
 using BeamCheck.Core.Recognition;
 #if BRICSCAD
 using Teigha.DatabaseServices;
@@ -11,13 +14,26 @@ using Autodesk.AutoCAD.DatabaseServices;
 namespace BeamCheck.Cad
 {
     /// <summary>
-    /// Reads the COM/ActiveX properties of custom objects — the same ones the Properties palette shows.
-    /// PERI CAD parts are custom (AEC-based) entities that keep article data in their own binary
-    /// format; their COM wrapper is the documented way to get at it without PERI's SDK.
-    /// Only used for objects that have no managed wrapper of their own.
+    /// Reads what a PERI part says about itself.
+    ///
+    /// PERI CAD parts are instances of managed classes from PERI's own assembly
+    /// (<c>PERI.DatabaseServices.Part</c>). They expose ArtNr, Name, Width/Depth/Height (m) and
+    /// Categories as ordinary .NET properties — read here by reflection, so no reference to PERI's
+    /// assembly is needed and the same code works for PERI CAD 24 (AutoCAD) and 25/26 (BricsCAD).
+    /// Unknown custom objects fall back to their COM (ActiveX) properties.
     /// </summary>
     internal static class ComProperties
     {
+        /// <summary>Properties of PERI part classes copied into the signature (key "PART:&lt;name&gt;").</summary>
+        private static readonly string[] PartProperties = { "ArtNr", "Name", "Width", "Depth", "Height", "Categories", "Mark" };
+
+        public static bool IsVendorObject(Entity ent)
+        {
+            string ns = ent.GetType().Namespace ?? "";
+            return !(ns.StartsWith("Autodesk.", StringComparison.Ordinal) || ns.StartsWith("Teigha.", StringComparison.Ordinal) ||
+                     ns.StartsWith("Bricscad.", StringComparison.Ordinal) || ns.StartsWith("System", StringComparison.Ordinal));
+        }
+
         public static bool IsCustomObject(Entity ent)
         {
             var t = ent.GetType();
@@ -26,8 +42,43 @@ namespace BeamCheck.Cad
 
         public static void AddTo(ElementSignature sig, Entity ent)
         {
-            if (!IsCustomObject(ent))
-                return;
+            if (IsVendorObject(ent))
+                AddPartProperties(sig, ent);
+            if (IsCustomObject(ent))
+                AddComProperties(sig, ent);
+        }
+
+        public static void AddPartProperties(ElementSignature sig, object obj)
+        {
+            foreach (var name in PartProperties)
+            {
+                try
+                {
+                    var p = obj.GetType().GetProperty(name, BindingFlags.Public | BindingFlags.Instance);
+                    if (p == null || p.GetIndexParameters().Length > 0)
+                        continue;
+                    sig.Add("PART:" + name, Format(p.GetValue(obj, null)));
+                }
+                catch (Exception)
+                {
+                    // A property that throws is simply not available for this part.
+                }
+            }
+        }
+
+        public static string Format(object v)
+        {
+            if (v == null)
+                return null;
+            if (v is string s)
+                return s;
+            if (v is IEnumerable e)
+                return string.Join(", ", e.Cast<object>().Take(30).Select(x => Convert.ToString(x, CultureInfo.InvariantCulture)));
+            return Convert.ToString(v, CultureInfo.InvariantCulture);
+        }
+
+        public static void AddComProperties(ElementSignature sig, Entity ent)
+        {
             object com;
             try
             {

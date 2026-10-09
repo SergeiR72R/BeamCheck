@@ -35,6 +35,7 @@
     <Reference Include="System.Drawing" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="..\..\deploy\BeamCheck.weights.csv" Link="BeamCheck.weights.csv" CopyToOutputDirectory="PreserveNewest" Condition="Exists('..\..\deploy\BeamCheck.weights.csv')" />
     <None Include="..\..\deploy\BeamCheck.settings.json" Link="BeamCheck.settings.json" CopyToOutputDirectory="PreserveNewest" Condition="Exists('..\..\deploy\BeamCheck.settings.json')" />
   </ItemGroup>
   <Target Name="CheckBricsCAD" BeforeTargets="ResolveAssemblyReferences" Condition="!Exists('$(BricsCADDir)\BrxMgd.dll')">

@@ -39,3 +39,15 @@
    других конструкций на той же оси выше.
 4. Регрессионные тесты `RealDrawingTests` гоняют весь расчёт на реальной геометрии двух балок
    из этого чертежа (`tests/.../Fixtures/*.json.gz`).
+
+## Уточнение по `PERIDUMP` из PERI CAD 24 (AutoCAD 2023, .NET Framework 4.x)
+- Детали — объекты управляемого класса **`PERI.DatabaseServices.Part`**
+  (DXF: `PERI_PARTS_AC_DB_CONSTRUCTED_SINGLE_PIECE`) со свойствами:
+  `ArtNr` (артикул), `Name` («UVH 250», «UH 150 +», «Stahlbelag UDG 25x300»),
+  `Width` / `Depth` / `Height` в метрах, `Categories`, `Mark`.
+  Модуль читает их рефлексией (`PART:ArtNr`, `PART:Name`, …) и по ним определяет тип.
+- Слои: `PERI_UP_UVH` / `PERI_UP_UVR` — стойки, `PERI_FLEX_UH_NEW` / `PERI_FLEX_UHV_NEW` —
+  леджеры, `PERI_Section` — деки.
+- **Свойства веса нет.** Веса берутся из таблицы `BeamCheck.weights.csv` (артикул;вес;название),
+  шаблон с артикулами из чертежа лежит в `deploy/`.
+- Бывает 3D-вид (`..._Line`) и деталь `..._Detail 1`: ось определяется по любому из них.

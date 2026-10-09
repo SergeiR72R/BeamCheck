@@ -80,3 +80,52 @@ namespace BeamCheck.Core.Tests
         }
     }
 }
+
+namespace BeamCheck.Core.Tests
+{
+    /// <summary>Strings exactly as PERIDUMP reported them for PERI CAD 24 (AutoCAD 2023) parts.</summary>
+    public class PeriPartRecognitionTests
+    {
+        [Theory]
+        [InlineData("UVH 250", "100007", "PERI_UP_UVH", Model.ElementKind.Standard)]
+        [InlineData("UVR 300", "100012", "PERI_UP_UVR", Model.ElementKind.Standard)]
+        [InlineData("UHV 300 PLUS", "114695", "PERI_FLEX_UHV_NEW", Model.ElementKind.Ledger)]
+        [InlineData("UH 150 +", "114641", "PERI_FLEX_UH_NEW", Model.ElementKind.Ledger)]
+        [InlineData("UH 25 +", "114613", "PERI_FLEX_UH_NEW", Model.ElementKind.Ledger)]
+        [InlineData("Stahlbelag UDG 25x300", "124915", "PERI_Section", Model.ElementKind.Deck)]
+        [InlineData("Stahlbelag UDG 25x50", "124124", "PERI_Section", Model.ElementKind.Deck)]
+        public void Part_name_and_article_decide_the_kind(string name, string art, string layer, Model.ElementKind expected)
+        {
+            var sig = new Recognition.ElementSignature
+            {
+                EntityType = "Part", Layer = layer, DxfName = "PERI_PARTS_AC_DB_CONSTRUCTED_SINGLE_PIECE",
+            };
+            sig.Add("PART:ArtNr", art);
+            sig.Add("PART:Name", name);
+
+            var c = new Recognition.ElementClassifier(new Settings.BeamCheckSettings()).Classify(sig);
+
+            Assert.Equal(expected, c.Kind);
+            Assert.Equal(art, c.Article);
+            Assert.Equal(name, c.Description);
+        }
+
+        [Fact]
+        public void Weights_csv_is_parsed_and_unfilled_rows_are_skipped()
+        {
+            const string csv = "# comment\nArticle;WeightKg;Name\n100007;13,8;UVH 250\n100005;;UVH 200\n\"114641\";5.4;\"UH 150 +\"\n";
+            var items = Settings.CatalogCsv.Parse(csv);
+
+            Assert.Equal(2, items.Count);
+            Assert.Equal(13.8, items[0].WeightKg);
+            Assert.Equal("UH 150 +", items[1].Description);
+
+            var s = new Settings.BeamCheckSettings();
+            s.Catalog.AddRange(items);
+            var sig = new Recognition.ElementSignature { Layer = "PERI_UP_UVH" };
+            sig.Add("PART:ArtNr", "100007");
+            sig.Add("PART:Name", "UVH 250");
+            Assert.Equal(13.8, new Recognition.ElementClassifier(s).Classify(sig).WeightKg);
+        }
+    }
+}

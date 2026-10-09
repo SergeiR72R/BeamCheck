@@ -17,7 +17,7 @@ namespace BeamCheck.Core.Settings
         }
 
         /// <summary>Bumped when defaults change in a way old settings files must not keep.</summary>
-        public const int CurrentVersion = 6;
+        public const int CurrentVersion = 7;
 
         [DataMember(Order = 0)] public int SettingsVersion { get; set; }
 
@@ -63,6 +63,15 @@ namespace BeamCheck.Core.Settings
         /// from the model), mm.
         /// </summary>
         [DataMember(Order = 31)] public double DeckHeightTolerance { get; set; }
+
+        /// <summary>Decks that do not lie on a ledger within the tolerances are still counted, via the nearest ledger.</summary>
+        [DataMember(Order = 32)] public bool DeckSnapEnabled { get; set; }
+
+        /// <summary>Largest plan distance from a deck edge to the ledger it is attached to when snapping, mm.</summary>
+        [DataMember(Order = 33)] public double DeckSnapDistance { get; set; }
+
+        /// <summary>Largest height deviation from the normal seat when snapping, mm.</summary>
+        [DataMember(Order = 34)] public double DeckSnapHeight { get; set; }
 
         /// <summary>Allowed range of (deck bottom − ledger axis Z).</summary>
         [DataMember(Order = 23)] public double DeckOverLedgerMin { get; set; }
@@ -205,6 +214,9 @@ namespace BeamCheck.Core.Settings
             NodeTolerance = 120;
             DeckBearingTolerance = 50;
             DeckHeightTolerance = 50;
+            DeckSnapEnabled = true;
+            DeckSnapDistance = 300;
+            DeckSnapHeight = 300;
             DeckOverLedgerMin = -300;
             DeckOverLedgerMax = 500;
             BeamPlanTolerance = 150;

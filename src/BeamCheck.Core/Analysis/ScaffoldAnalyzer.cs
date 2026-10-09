@@ -20,6 +20,12 @@ namespace BeamCheck.Core.Analysis
 
         /// <summary>Elements the user excluded manually.</summary>
         public ISet<string> ExcludedIds { get; set; } = new HashSet<string>();
+
+        /// <summary>
+        /// Elements the user added by hand: a deck listed here is attached to the nearest ledger however
+        /// loosely it sits (the user has decided that it belongs to the structure).
+        /// </summary>
+        public ISet<string> ForcedIds { get; set; } = new HashSet<string>();
     }
 
     /// <summary>
@@ -82,7 +88,7 @@ namespace BeamCheck.Core.Analysis
             var ledgers = all.Where(e => e.Kind == ElementKind.Ledger).ToList();
             AddLinearSelfWeight(topo, active, sink, ledgers, ContributionType.LedgerSelfWeight);
             AddLinearSelfWeight(topo, active, sink, all.Where(e => e.Kind == ElementKind.Diagonal || e.Kind == ElementKind.Accessory).ToList(), ContributionType.OtherSelfWeight);
-            AddDecks(topo, active, sink, all.Where(e => e.Kind == ElementKind.Deck).ToList(), ledgers);
+            AddDecks(topo, active, sink, all.Where(e => e.Kind == ElementKind.Deck).ToList(), ledgers, input.ForcedIds);
             AddUpperBeamWeights(topo, sink);
 
             // Pass everything standing on upper beams down to the columns of the beam under check.
@@ -497,10 +503,11 @@ namespace BeamCheck.Core.Analysis
             }
         }
 
-        private void AddDecks(Topology topo, List<Column> columns, List<Contribution> sink, List<ScaffoldElement> decks, List<ScaffoldElement> ledgers)
+        private void AddDecks(Topology topo, List<Column> columns, List<Contribution> sink, List<ScaffoldElement> decks, List<ScaffoldElement> ledgers, ISet<string> forced)
         {
             var deckContribs = new List<Contribution>();
-            int nearMissing = 0, halfSupported = 0;
+            int nearMissing = 0, halfSupported = 0, snapped = 0;
+            double maxSnap = 0;
             var samples = new List<string>();
             double seat = CalibrateDeckSeat(decks, ledgers);
             if (decks.Count > 0)
@@ -513,9 +520,24 @@ namespace BeamCheck.Core.Analysis
                 var found = new List<Contribution>();
                 int resolved = 0;
 
+                bool isForced = forced != null && forced.Contains(deck.Id);
                 foreach (var bearing in new[] { deck.Start, deck.End })
                 {
                     var ledger = FindBearingLedger(deck, bearing, ledgers, out double t, seat);
+                    if (ledger == null && (isForced || _s.DeckSnapEnabled))
+                    {
+                        // Not seated on a ledger (modelled loosely): carried by the nearest one instead.
+                        double plan = isForced ? Math.Max(_s.DeckSnapDistance, 1500) : _s.DeckSnapDistance;
+                        double height = isForced ? Math.Max(_s.DeckSnapHeight, 1000) : _s.DeckSnapHeight;
+                        ledger = FindBearingLedger(deck, bearing, ledgers, out t, seat, plan, height);
+                        if (ledger != null)
+                        {
+                            snapped++;
+                            PlanGeometry.ProjectXY(ledger.Start, ledger.End, bearing, out double gap);
+                            maxSnap = Math.Max(maxSnap, gap);
+                        }
+                    }
+
                     if (ledger == null)
                         continue;
 
@@ -542,6 +564,10 @@ namespace BeamCheck.Core.Analysis
                 topo.UsedElementIds.Add(deck.Id);
             }
 
+            if (snapped > 0)
+                topo.Warnings.Add(string.Format(CultureInfo.InvariantCulture,
+                    "ℹ {0} опор деков не лежат на леджере (допуск {1:0} мм), привязаны к ближайшему леджеру — отклонение в плане до {2:0} мм.",
+                    snapped, _s.DeckBearingTolerance, maxSnap));
             if (nearMissing + halfSupported > 0)
             {
                 topo.Warnings.Add(string.Format(CultureInfo.InvariantCulture,
@@ -602,7 +628,7 @@ namespace BeamCheck.Core.Analysis
         /// Height: with <paramref name="nominalDz"/> the deck must sit within ±DeckHeightTolerance of it;
         /// without it (calibration) any height inside the DeckOverLedgerMin..Max window is taken.
         /// </summary>
-        private ScaffoldElement FindBearingLedger(ScaffoldElement deck, Vec3 bearing, List<ScaffoldElement> ledgers, out double t, double? nominalDz = null)
+        private ScaffoldElement FindBearingLedger(ScaffoldElement deck, Vec3 bearing, List<ScaffoldElement> ledgers, out double t, double? nominalDz = null, double? planTol = null, double? heightTol = null)
         {
             ScaffoldElement best = null;
             double bestDist = double.MaxValue;
@@ -613,13 +639,19 @@ namespace BeamCheck.Core.Analysis
                 double ledgerZ = (l.Start.Z + l.End.Z) / 2;
                 double dz = deck.ZMin - ledgerZ;
                 bool heightOk = nominalDz.HasValue
-                    ? Math.Abs(dz - nominalDz.Value) <= _s.DeckHeightTolerance
+                    ? Math.Abs(dz - nominalDz.Value) <= (heightTol ?? _s.DeckHeightTolerance)
                     : dz >= _s.DeckOverLedgerMin && dz <= _s.DeckOverLedgerMax;
                 if (!heightOk)
                     continue;
 
+                // A deck rests on a crossbar: the ledger runs across the deck, never along it.
+                var ld = (l.End - l.Start).PlanDirection();
+                var dd = (deck.End - deck.Start).PlanDirection();
+                if (ld.LengthXY > 0 && dd.LengthXY > 0 && Math.Abs(ld.DotXY(dd)) > 0.5)
+                    continue;
+
                 double tt = PlanGeometry.ProjectXY(l.Start, l.End, bearing, out double dist);
-                if (dist > _s.DeckBearingTolerance || dist >= bestDist)
+                if (dist > (planTol ?? _s.DeckBearingTolerance) || dist >= bestDist)
                     continue;
                 double slack = deck.Width / 2 / Math.Max(1, l.PlanLength);
                 if (tt < -slack || tt > 1 + slack)

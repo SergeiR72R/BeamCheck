@@ -40,6 +40,8 @@ namespace BeamCheck.Cad.UI
         private TextBox _warnings;
         private Label _info;
         private GroupBox _resultsBox;
+        private CheckBox _snap;
+        private NumericUpDown _snapMm;
 
         public BeamLoadForm(BeamLoadSession session)
         {
@@ -84,13 +86,15 @@ namespace BeamCheck.Cad.UI
             _gammaG = Num(1.35m);
             _gammaQ = Num(1.5m);
             _showDesign = new CheckBox { Text = "На схеме — расчётные Fd", AutoSize = true, Margin = new Padding(12, 6, 3, 3) };
+            _snap = new CheckBox { Text = "Деки не на леджере — привязать к ближайшему, мм:", AutoSize = true, Margin = new Padding(12, 6, 3, 3) };
+            _snapMm = new NumericUpDown { Minimum = 50, Maximum = 2000, Increment = 50, Value = 300, Width = 70 };
             _flip = new CheckBox { Text = "Отсчёт от другого конца балки", AutoSize = true, Margin = new Padding(12, 6, 3, 3) };
             options.Controls.AddRange(new Control[]
             {
                 Caption("Класс нагрузки:"), _loadClass,
                 Caption("Ярусы:"), _levelMode,
                 Caption("γG:"), _gammaG, Caption("γQ:"), _gammaQ,
-                _showDesign, _flip,
+                _showDesign, _flip, _snap, _snapMm,
             });
             root.Controls.Add(options);
 
@@ -137,6 +141,21 @@ namespace BeamCheck.Cad.UI
             _gammaQ.ValueChanged += (s, e) => OnOptionChanged();
             _showDesign.CheckedChanged += (s, e) => OnOptionChanged();
             _flip.CheckedChanged += (s, e) => OnOptionChanged();
+            EventHandler snapChanged = (s, e) =>
+            {
+                if (_updating)
+                    return;
+                _session.Settings.DeckSnapEnabled = _snap.Checked;
+                _session.Settings.DeckSnapDistance = (double)_snapMm.Value;
+                _session.Settings.DeckSnapHeight = Math.Max(_session.Settings.DeckSnapHeight, (double)_snapMm.Value);
+                _session.Reanalyze();
+                _session.StatusMessage = _snap.Checked
+                    ? "Деки, лежащие не на леджере, привязываются к ближайшему (до " + _snapMm.Value + " мм) — расчёт обновлён."
+                    : "Привязка к ближайшему леджеру выключена: строгий допуск — расчёт обновлён.";
+                RefreshAll();
+            };
+            _snap.CheckedChanged += snapChanged;
+            _snapMm.ValueChanged += snapChanged;
             _levelMode.SelectedIndexChanged += (s, e) =>
             {
                 if (_updating)
@@ -158,6 +177,8 @@ namespace BeamCheck.Cad.UI
             _gammaQ.Value = (decimal)o.GammaQ;
             _showDesign.Checked = o.ShowDesignValues;
             _flip.Checked = o.FlipBeam;
+            _snap.Checked = _session.Settings.DeckSnapEnabled;
+            _snapMm.Value = (decimal)Math.Max(50, Math.Min(2000, _session.Settings.DeckSnapDistance));
             _updating = false;
         }
 
@@ -210,7 +231,7 @@ namespace BeamCheck.Cad.UI
         {
             var r = _session.Result;
             var topo = _session.Topology;
-            _info.Text = string.Format("Балка: {0}   L = {1} мм   стоек: {2}   ярусов: {3}   верхних балок: {4}   учтено объектов: {5}",
+            _info.Text = (string.IsNullOrEmpty(_session.StatusMessage) ? "" : "▶ " + _session.StatusMessage + Environment.NewLine) + string.Format("Балка: {0}   L = {1} мм   стоек: {2}   ярусов: {3}   верхних балок: {4}   учтено объектов: {5}",
                 string.IsNullOrEmpty(r.BeamName) ? "—" : r.BeamName, _nf.Mm(r.BeamLength), topo.Columns.Count, topo.Levels.Count, topo.UpperBeams.Count, topo.UsedElementIds.Count);
 
             _results.Rows.Clear();

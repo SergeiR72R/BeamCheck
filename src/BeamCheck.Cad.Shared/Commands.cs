@@ -160,7 +160,7 @@ namespace BeamCheck.Cad
                 switch (action)
                 {
                     case FormAction.Highlight:
-                        var ids = session.Topology.UsedElementIds.Where(idMap.ContainsKey).Select(i => idMap[i]).Distinct().ToList();
+                        var ids = session.Topology.UsedElementIds.Concat(session.ManualIds).Where(idMap.ContainsKey).Select(i => idMap[i]).Distinct().ToList();
                         Highlight(db, ids, true);
                         ed.GetString(new PromptStringOptions($"\nПодсвечено учтённых объектов: {ids.Count}. Enter — вернуться в диалог: ") { AllowSpaces = true });
                         Highlight(db, ids, false);
@@ -229,7 +229,7 @@ namespace BeamCheck.Cad
             }
 
             session.Add(added);
-            ed.WriteMessage($"\nДобавлено элементов: {added.Count}.");
+            ed.WriteMessage("\n" + session.StatusMessage + " Расчёт обновлён — результат в диалоге.");
         }
 
         /// <summary>All recognised elements in model space within the search radius of the selected standards.</summary>

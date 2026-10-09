@@ -81,17 +81,32 @@ namespace BeamCheck.Core.Analysis
 
         public void Exclude(IEnumerable<string> ids)
         {
+            int n = 0;
             foreach (var id in ids)
+            {
                 Input.ExcludedIds.Add(id);
+                Input.ForcedIds.Remove(id);
+                n++;
+            }
+
             Reanalyze();
+            StatusMessage = "Исключено из расчёта объектов: " + n + ".";
         }
+
+        /// <summary>Message about the last manual change (shown in the dialog).</summary>
+        public string StatusMessage { get; set; }
+
+        /// <summary>Ids of everything the user added by hand (highlighted even if it carries no load).</summary>
+        public ISet<string> ManualIds => Input.ForcedIds;
 
         /// <summary>Adds elements (or re-adds excluded ones), replacing any existing entry with the same id.</summary>
         public void Add(IEnumerable<ScaffoldElement> elements)
         {
-            foreach (var e in elements)
+            var list = elements.ToList();
+            foreach (var e in list)
             {
                 Input.ExcludedIds.Remove(e.Id);
+                Input.ForcedIds.Add(e.Id);
                 for (int i = Input.Candidates.Count - 1; i >= 0; i--)
                     if (Input.Candidates[i].Id == e.Id)
                         Input.Candidates.RemoveAt(i);
@@ -101,6 +116,13 @@ namespace BeamCheck.Core.Analysis
             }
 
             Reanalyze();
+
+            int used = list.Count(e => Topology.UsedElementIds.Contains(e.Id));
+            var byKind = string.Join(", ", list.GroupBy(e => e.Kind).Select(g => g.Key + "×" + g.Count()));
+            StatusMessage = list.Count == 0
+                ? "Ничего не добавлено."
+                : $"Добавлено в расчёт: {list.Count} ({byKind}); дают нагрузку на выбранные стойки: {used}." +
+                  (used < list.Count ? " Остальные не связаны с выбранными стойками (леджер не доходит до выбранной стойки)." : "");
         }
 
         /// <summary>Area of each level summed over all selected standards, m².</summary>

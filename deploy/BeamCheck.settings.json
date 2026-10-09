@@ -1,5 +1,5 @@
 {
-  "SettingsVersion": 6,
+  "SettingsVersion": 7,
   "LoadClasses": [
     {
       "Class": 1,
@@ -46,6 +46,9 @@
   "ColumnGapTolerance": 300,
   "UpperBeamBearingTolerance": 400,
   "DeckHeightTolerance": 50,
+  "DeckSnapEnabled": true,
+  "DeckSnapDistance": 300,
+  "DeckSnapHeight": 300,
   "StandardKgPerM": 5.5,
   "LedgerKgPerM": 3.5,
   "DeckKgPerM2": 22,

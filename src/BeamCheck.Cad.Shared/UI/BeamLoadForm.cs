@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.IO;
 using System.Linq;
@@ -79,7 +79,7 @@ namespace BeamCheck.Cad.UI
             foreach (var c in _session.Settings.LoadClasses)
                 _loadClass.Items.Add(new ClassItem(c, _nf));
             _levelMode = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 260 };
-            _levelMode.Items.AddRange(new object[] { "Расчётный ярус 100% + соседние 50%", "Все ярусы 100%" });
+            _levelMode.Items.AddRange(new object[] { "Расчётный ярус 100% + один соседний 50% (EN 12811-1)", "Все ярусы 100%" });
             _gammaG = Num(1.35m);
             _gammaQ = Num(1.5m);
             _showDesign = new CheckBox { Text = "На схеме — расчётные Fd", AutoSize = true, Margin = new Padding(12, 6, 3, 3) };

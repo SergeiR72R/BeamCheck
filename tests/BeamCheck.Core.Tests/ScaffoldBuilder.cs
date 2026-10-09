@@ -12,9 +12,13 @@ namespace BeamCheck.Core.Tests
     /// </summary>
     internal sealed class ScaffoldBuilder
     {
-        public const double Width = 732;
-        public const double DeckWidth = 244;
-        public static readonly double[] Xs = { 1423, 2423, 3923 };
+        /// <summary>Distance between the two standard rows (Y), mm.</summary>
+        public double Width = 732;
+
+        /// <summary>Standard positions along the beam (X), mm.</summary>
+        public double[] Xs = { 1423, 2423, 3923 };
+
+        public double DeckWidth => Width / 3;
 
         private int _id;
 
@@ -29,18 +33,23 @@ namespace BeamCheck.Core.Tests
         /// <summary>Ledger ends stop this far from the standard axis (as modelled wedge heads may).</summary>
         public double LedgerGap = 0;
 
-        public static ScaffoldBuilder Example(params double[] levelZ)
+        public static ScaffoldBuilder Example(params double[] levelZ) => Build(new ScaffoldBuilder(), levelZ);
+
+        /// <summary>Regular scaffold: standards at <paramref name="xs"/>, two rows <paramref name="width"/> apart.</summary>
+        public static ScaffoldBuilder Custom(double[] xs, double width, params double[] levelZ) =>
+            Build(new ScaffoldBuilder { Xs = xs, Width = width }, levelZ);
+
+        private static ScaffoldBuilder Build(ScaffoldBuilder b, double[] levelZ)
         {
-            var b = new ScaffoldBuilder();
             b.Beam = new ScaffoldElement
             {
                 Id = "BEAM", Kind = ElementKind.Beam, Article = "HEB200",
-                Start = new Vec3(0, 0, -100), End = new Vec3(4472, 0, -100), Width = 200, ZMin = -200, ZMax = 0,
+                Start = new Vec3(0, 0, -100), End = new Vec3(b.Xs[b.Xs.Length - 1] + 549, 0, -100), Width = 200, ZMin = -200, ZMax = 0,
             };
             double top = levelZ.Length == 0 ? 2000 : levelZ[levelZ.Length - 1] + 1000;
-            foreach (double x in Xs)
+            foreach (double x in b.Xs)
             {
-                foreach (double y in new[] { 0.0, Width })
+                foreach (double y in new[] { 0.0, b.Width })
                 {
                     for (double z = 0; z < top; z += 2000)
                     {

@@ -29,7 +29,7 @@ namespace BeamCheck.Core.Settings
         /// <summary>Factor on service load of the governing (most loaded) level.</summary>
         [DataMember(Order = 4)] public double MainLevelFactor { get; set; }
 
-        /// <summary>Factor on service load of the levels directly above/below the governing one.</summary>
+        /// <summary>Factor on service load of the ONE level directly above or below the governing one (the larger load).</summary>
         [DataMember(Order = 5)] public double AdjacentLevelFactor { get; set; }
 
         /// <summary>Factor on service load of all other levels.</summary>

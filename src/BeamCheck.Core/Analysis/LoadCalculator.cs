@@ -110,9 +110,10 @@ namespace BeamCheck.Core.Analysis
         public static double KgToKn(double kg) => kg * G / 1000.0;
 
         /// <summary>
-        /// Default level factors: either every level at the main factor, or the governing level
-        /// (largest deck area on the selected standards) at the main factor, its neighbours at the
-        /// adjacent factor and all others at the "other" factor.
+        /// Default level factors. AllLevels: every level at the main factor. Otherwise EN 12811-1
+        /// (and PERI's tables for UP Flex/Easy): one level 100 % and ONE directly adjacent level 50 %.
+        /// The pair (governing, neighbour above or below) giving the largest total tributary area on the
+        /// selected standards is taken; all other levels get the "other" factor.
         /// </summary>
         public static Dictionary<int, double> DefaultLevelFactors(Topology topo, BeamCheckSettings s)
         {
@@ -127,17 +128,30 @@ namespace BeamCheck.Core.Analysis
                 return result;
             }
 
-            var areaByLevel = topo.Levels.ToDictionary(l => l.Index, l => topo.Contributions
+            var area = topo.Levels.ToDictionary(l => l.Index, l => topo.Contributions
                 .Where(c => c.Type == ContributionType.Deck && c.Level == l)
                 .Sum(c => c.AreaM2));
-            int governing = areaByLevel.OrderByDescending(kv => kv.Value).ThenByDescending(kv => kv.Key).First().Key;
 
-            foreach (var l in topo.Levels)
+            int bestG = -1, bestN = -1;
+            double bestTotal = double.MinValue;
+            foreach (var l in topo.Levels.OrderByDescending(x => x.Index))
             {
-                int d = Math.Abs(l.Index - governing);
-                result[l.Index] = d == 0 ? s.MainLevelFactor : d == 1 ? s.AdjacentLevelFactor : s.OtherLevelFactor;
+                foreach (int n in new[] { l.Index - 1, l.Index + 1, -1 })
+                {
+                    if (n != -1 && !area.ContainsKey(n))
+                        continue;
+                    double total = s.MainLevelFactor * area[l.Index] + (n == -1 ? 0 : s.AdjacentLevelFactor * area[n]);
+                    if (total > bestTotal + 1e-9)
+                    {
+                        bestTotal = total;
+                        bestG = l.Index;
+                        bestN = n;
+                    }
+                }
             }
 
+            foreach (var l in topo.Levels)
+                result[l.Index] = l.Index == bestG ? s.MainLevelFactor : l.Index == bestN ? s.AdjacentLevelFactor : s.OtherLevelFactor;
             return result;
         }
 

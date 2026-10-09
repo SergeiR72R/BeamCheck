@@ -153,3 +153,33 @@ namespace BeamCheck.Core.Tests
         }
     }
 }
+
+namespace BeamCheck.Core.Tests
+{
+    public class LevelRuleTests
+    {
+        [Fact]
+        public void Only_one_neighbour_gets_fifty_percent_the_more_loaded_one()
+        {
+            // 3 equal levels would tie; remove half of the lowest level so the neighbour choice matters.
+            var b = ScaffoldBuilder.Example(2000, 4000, 6000);
+            var input = b.Input();
+            var lowDecks = b.Elements.Where(e => e.Kind == Model.ElementKind.Deck && e.ZMin < 3000).ToList();
+            input.ExcludedIds.Add(lowDecks[0].Id);
+            input.ExcludedIds.Add(lowDecks[1].Id);
+            input.ExcludedIds.Add(lowDecks[2].Id);
+
+            var session = new BeamLoadSession(new BeamCheckSettings(), input);
+            var f = session.Options.LevelFactors;
+
+            Assert.Equal(3, f.Count);
+            Assert.Equal(1, f.Values.Count(v => v == 1.0));
+            Assert.Equal(1, f.Values.Count(v => v == 0.5));
+            Assert.Equal(1, f.Values.Count(v => v == 0.0));
+            // Two equal upper levels: the top one governs, the middle one is the neighbour, the weaker lowest level is unloaded.
+            Assert.Equal(0.0, f[1]);
+            Assert.Equal(0.5, f[2]);
+            Assert.Equal(1.0, f[3]);
+        }
+    }
+}

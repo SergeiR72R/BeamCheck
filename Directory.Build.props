@@ -7,5 +7,7 @@
     <Company>BeamCheck</Company>
     <Product>BeamCheck — нагрузки от стоек лесов на балку</Product>
     <Deterministic>true</Deterministic>
+    <!-- Side-by-side builds (net48 / net8) keep separate obj-* folders; never compile their generated files. -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);obj/**;obj-*/**;bin/**</DefaultItemExcludes>
   </PropertyGroup>
 </Project>

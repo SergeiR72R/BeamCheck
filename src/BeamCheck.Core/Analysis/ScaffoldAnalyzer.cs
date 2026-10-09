@@ -500,8 +500,13 @@ namespace BeamCheck.Core.Analysis
         private void AddDecks(Topology topo, List<Column> columns, List<Contribution> sink, List<ScaffoldElement> decks, List<ScaffoldElement> ledgers)
         {
             var deckContribs = new List<Contribution>();
-            int relaxed = 0, nearMissing = 0, halfSupported = 0;
+            int nearMissing = 0, halfSupported = 0;
             var samples = new List<string>();
+            double seat = CalibrateDeckSeat(decks, ledgers);
+            if (decks.Count > 0)
+                topo.Warnings.Add(string.Format(CultureInfo.InvariantCulture,
+                "ℹ Посадка деков: опорная точка дека выше оси леджера на {0:0} мм (допуск ±{1:0} мм по высоте, ≤{2:0} мм в плане).",
+                seat, _s.DeckHeightTolerance, _s.DeckBearingTolerance));
 
             foreach (var deck in decks)
             {
@@ -510,16 +515,7 @@ namespace BeamCheck.Core.Analysis
 
                 foreach (var bearing in new[] { deck.Start, deck.End })
                 {
-                    // Decks are often not seated exactly on the ledger in the model: try the normal tolerance
-                    // first, then a looser one.
-                    var ledger = FindBearingLedger(deck, bearing, ledgers, out double t);
-                    if (ledger == null)
-                    {
-                        ledger = FindBearingLedger(deck, bearing, ledgers, out t, _s.DeckRelaxedFactor);
-                        if (ledger != null)
-                            relaxed++;
-                    }
-
+                    var ledger = FindBearingLedger(deck, bearing, ledgers, out double t, seat);
                     if (ledger == null)
                         continue;
 
@@ -536,7 +532,7 @@ namespace BeamCheck.Core.Analysis
                     else
                         halfSupported++;
                     if (samples.Count < 4)
-                        samples.Add(DescribeMiss(deck, ledgers));
+                        samples.Add(DescribeMiss(deck, ledgers, seat));
                 }
 
                 if (found.Count == 0)
@@ -546,12 +542,10 @@ namespace BeamCheck.Core.Analysis
                 topo.UsedElementIds.Add(deck.Id);
             }
 
-            if (relaxed > 0)
-                topo.Warnings.Add("ℹ " + relaxed + " опор деков привязаны к леджерам с увеличенным допуском (дек лежит не вплотную к леджеру).");
             if (nearMissing + halfSupported > 0)
             {
                 topo.Warnings.Add(string.Format(CultureInfo.InvariantCulture,
-                    "Деки рядом со стойками без леджера под опорой: {0} без опор, {1} с одной опорой — нагрузка с них учтена частично или не учтена. Примеры (расстояние до ближайшего леджера: в плане / по высоте): {2}.",
+                    "Деки рядом со стойками без леджера под опорой: {0} без опор, {1} с одной опорой — нагрузка с них учтена частично или не учтена. Примеры (до ближайшего леджера: в плане / по высоте от нормальной посадки): {2}.",
                     nearMissing, halfSupported, string.Join("; ", samples)));
             }
 
@@ -564,7 +558,7 @@ namespace BeamCheck.Core.Analysis
                              && deck.ZMin >= c.ZBottom - 300 && deck.ZMin <= c.ZTop + 300);
 
         /// <summary>For a deck without a ledger: how far away the nearest ledger is (plan distance to its axis, height difference).</summary>
-        private string DescribeMiss(ScaffoldElement deck, List<ScaffoldElement> ledgers)
+        private string DescribeMiss(ScaffoldElement deck, List<ScaffoldElement> ledgers, double seat)
         {
             var parts = new List<string>();
             foreach (var end in new[] { deck.Start, deck.End })
@@ -585,7 +579,7 @@ namespace BeamCheck.Core.Analysis
 
                 parts.Add(best == null
                     ? "леджера нет"
-                    : string.Format(CultureInfo.InvariantCulture, "{0:0} / {1:0} мм", bestPlan, deck.ZMin - (best.Start.Z + best.End.Z) / 2));
+                    : string.Format(CultureInfo.InvariantCulture, "{0:0} / {1:+0;-0;0} мм", bestPlan, deck.ZMin - (best.Start.Z + best.End.Z) / 2 - seat));
             }
 
             return deck.DisplayName + " Z=" + deck.ZMin.ToString("0", CultureInfo.InvariantCulture) + " [" + string.Join(" | ", parts) + "]";
@@ -602,8 +596,13 @@ namespace BeamCheck.Core.Analysis
             topo.UsedElementIds.Add(ledger.Id);
         }
 
-        /// <summary>Ledger under one bearing edge of a deck; t = position of the bearing along the ledger.</summary>
-        private ScaffoldElement FindBearingLedger(ScaffoldElement deck, Vec3 bearing, List<ScaffoldElement> ledgers, out double t, double factor = 1, bool ignoreHeight = false)
+        /// <summary>
+        /// Ledger under one bearing edge of a deck; t = position of the bearing along the ledger.
+        /// Plan distance to the ledger axis is limited by <see cref="BeamCheckSettings.DeckBearingTolerance"/>.
+        /// Height: with <paramref name="nominalDz"/> the deck must sit within ±DeckHeightTolerance of it;
+        /// without it (calibration) any height inside the DeckOverLedgerMin..Max window is taken.
+        /// </summary>
+        private ScaffoldElement FindBearingLedger(ScaffoldElement deck, Vec3 bearing, List<ScaffoldElement> ledgers, out double t, double? nominalDz = null)
         {
             ScaffoldElement best = null;
             double bestDist = double.MaxValue;
@@ -613,11 +612,14 @@ namespace BeamCheck.Core.Analysis
             {
                 double ledgerZ = (l.Start.Z + l.End.Z) / 2;
                 double dz = deck.ZMin - ledgerZ;
-                if (!ignoreHeight && (dz < _s.DeckOverLedgerMin * factor || dz > _s.DeckOverLedgerMax * factor))
+                bool heightOk = nominalDz.HasValue
+                    ? Math.Abs(dz - nominalDz.Value) <= _s.DeckHeightTolerance
+                    : dz >= _s.DeckOverLedgerMin && dz <= _s.DeckOverLedgerMax;
+                if (!heightOk)
                     continue;
 
                 double tt = PlanGeometry.ProjectXY(l.Start, l.End, bearing, out double dist);
-                if (dist > _s.DeckBearingTolerance * factor || dist >= bestDist)
+                if (dist > _s.DeckBearingTolerance || dist >= bestDist)
                     continue;
                 double slack = deck.Width / 2 / Math.Max(1, l.PlanLength);
                 if (tt < -slack || tt > 1 + slack)
@@ -629,6 +631,29 @@ namespace BeamCheck.Core.Analysis
             }
 
             return best;
+        }
+
+        /// <summary>
+        /// How high the deck reference sits above the ledger axis in this model (median over decks that
+        /// lie on a ledger within the plan tolerance). Depends on which outline PERI draws for the deck.
+        /// </summary>
+        private double CalibrateDeckSeat(List<ScaffoldElement> decks, List<ScaffoldElement> ledgers)
+        {
+            var dzs = new List<double>();
+            foreach (var deck in decks)
+            {
+                foreach (var bearing in new[] { deck.Start, deck.End })
+                {
+                    var l = FindBearingLedger(deck, bearing, ledgers, out _);
+                    if (l != null)
+                        dzs.Add(deck.ZMin - (l.Start.Z + l.End.Z) / 2);
+                }
+            }
+
+            if (dzs.Count == 0)
+                return (_s.DeckOverLedgerMin + _s.DeckOverLedgerMax) / 2;
+            dzs.Sort();
+            return dzs[dzs.Count / 2];
         }
 
         private void BuildLevels(Topology topo, List<Contribution> deckContribs)

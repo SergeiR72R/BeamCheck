@@ -7,17 +7,22 @@ using Xunit;
 
 namespace BeamCheck.Core.Tests
 {
+    /// <summary>Decks must lie within 50 mm of the ledger (plan) and within ±50 mm of the model's normal seat height.</summary>
     public class LooseDeckTests
     {
-        private static double TotalArea(double raise, out Topology topo, double planShift = 0)
+        private const double ExactArea = 0.183 + (0.183 + 0.2745) + 0.2745;
+
+        private static double TotalArea(out Topology topo, double raiseAll = 0, double shiftX = 0, int oddDecks = 0, double oddRaise = 0)
         {
             var b = ScaffoldBuilder.Example(2000);
+            int i = 0;
             foreach (var d in b.Elements.Where(e => e.Kind == ElementKind.Deck))
             {
+                double raise = raiseAll + (i++ < oddDecks ? oddRaise : 0);
                 d.ZMin += raise;
                 d.ZMax += raise;
-                d.Start = new Vec3(d.Start.X, d.Start.Y + planShift, d.Start.Z + raise);
-                d.End = new Vec3(d.End.X, d.End.Y + planShift, d.End.Z + raise);
+                d.Start = new Vec3(d.Start.X + shiftX, d.Start.Y, d.Start.Z + raise);
+                d.End = new Vec3(d.End.X + shiftX, d.End.Y, d.End.Z + raise);
             }
 
             var s = new BeamLoadSession(new BeamCheckSettings(), b.Input());
@@ -26,32 +31,42 @@ namespace BeamCheck.Core.Tests
         }
 
         [Fact]
-        public void A_deck_resting_exactly_is_matched_without_warnings()
+        public void A_deck_resting_exactly_is_matched()
         {
-            double a = TotalArea(0, out var t);
-            Assert.Equal(0.183 + (0.183 + 0.2745) + 0.2745, a, 6);
-            Assert.DoesNotContain(t.Warnings, w => w.Contains("увеличенным допуском"));
+            Assert.Equal(ExactArea, TotalArea(out var t), 6);
+            Assert.DoesNotContain(t.Warnings, w => w.Contains("без леджера"));
         }
 
         [Fact]
-        public void A_deck_floating_half_a_metre_above_the_ledger_is_still_found_in_the_relaxed_pass()
+        public void The_seat_height_is_learned_from_the_model_so_a_uniform_offset_is_fine()
         {
-            double exact = TotalArea(0, out _);
-            double loose = TotalArea(600, out var t);
-
-            Assert.Equal(exact, loose, 6);
-            Assert.Contains(t.Warnings, w => w.Contains("увеличенным допуском"));
+            Assert.Equal(ExactArea, TotalArea(out var t, raiseAll: 120), 6);
+            Assert.Contains(t.Warnings, w => w.Contains("Посадка деков") && w.Contains("130"));
         }
 
         [Fact]
-        public void A_deck_that_is_too_far_from_any_ledger_is_reported_with_the_distances()
+        public void A_deck_off_by_more_than_5_cm_in_height_from_the_others_is_rejected_and_reported()
         {
-            double a = TotalArea(1500, out var t);
+            double a = TotalArea(out var t, oddDecks: 1, oddRaise: 80);
 
-            Assert.Equal(0, a, 9);
-            var w = t.Warnings.Single(x => x.Contains("без леджера под опорой"));
-            Assert.Contains("/", w);
-            Assert.Contains("мм", w);
+            Assert.True(a < ExactArea);
+            Assert.Contains(t.Warnings, w => w.Contains("без леджера") && w.Contains("+80"));
+        }
+
+        [Fact]
+        public void A_deck_within_5_cm_in_height_is_accepted()
+        {
+            Assert.Equal(ExactArea, TotalArea(out _, oddDecks: 1, oddRaise: 40), 6);
+        }
+
+        [Fact]
+        public void Plan_distance_is_limited_to_5_cm()
+        {
+            Assert.Equal(ExactArea, TotalArea(out _, shiftX: 45), 6);
+
+            double far = TotalArea(out var t, shiftX: 80);
+            Assert.Equal(0, far, 9);
+            Assert.Contains(t.Warnings, w => w.Contains("без леджера под опорой") && w.Contains("80"));
         }
     }
 }

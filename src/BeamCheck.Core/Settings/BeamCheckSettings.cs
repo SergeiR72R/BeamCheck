@@ -17,7 +17,7 @@ namespace BeamCheck.Core.Settings
         }
 
         /// <summary>Bumped when defaults change in a way old settings files must not keep.</summary>
-        public const int CurrentVersion = 5;
+        public const int CurrentVersion = 6;
 
         [DataMember(Order = 0)] public int SettingsVersion { get; set; }
 
@@ -58,8 +58,11 @@ namespace BeamCheck.Core.Settings
         /// <summary>Max plan distance between a deck bearing edge and the ledger axis.</summary>
         [DataMember(Order = 22)] public double DeckBearingTolerance { get; set; }
 
-        /// <summary>Second matching pass for decks that sit loosely: both deck tolerances are multiplied by this.</summary>
-        [DataMember(Order = 31)] public double DeckRelaxedFactor { get; set; }
+        /// <summary>
+        /// Allowed deviation of the deck height from the normal seat on the ledger (the seat itself is measured
+        /// from the model), mm.
+        /// </summary>
+        [DataMember(Order = 31)] public double DeckHeightTolerance { get; set; }
 
         /// <summary>Allowed range of (deck bottom − ledger axis Z).</summary>
         [DataMember(Order = 23)] public double DeckOverLedgerMin { get; set; }
@@ -200,10 +203,10 @@ namespace BeamCheck.Core.Settings
 
             ColumnXYTolerance = 30;
             NodeTolerance = 120;
-            DeckBearingTolerance = 200;
-            DeckOverLedgerMin = -200;
-            DeckOverLedgerMax = 350;
-            DeckRelaxedFactor = 3;
+            DeckBearingTolerance = 50;
+            DeckHeightTolerance = 50;
+            DeckOverLedgerMin = -300;
+            DeckOverLedgerMax = 500;
             BeamPlanTolerance = 150;
             ColumnOnBeamZTolerance = 600;
             LevelZTolerance = 150;

@@ -99,7 +99,23 @@ dotnet build src/BeamCheck.Bcad -c Release -f net48          -p:BricsCADDir="C:\
 - Скопировать `dist\BeamCheck.bundle` и `dist\install.ps1` на рабочее место и запустить
   `powershell -ExecutionPolicy Bypass -File install.ps1`.
   - PERI CAD 24 (AutoCAD): bundle ставится в `%APPDATA%\Autodesk\ApplicationPlugins`
-    и загружается автоматически.
+    и загружается автоматически: AutoCAD 2021–2024 берёт вариант `net48`, AutoCAD 2025+ — `net8`.
   - BricsCAD: модуль регистрируется на автозагрузку во всех найденных профилях BricsCAD
     (V25 → net48, V26+ → net8).
 - Вручную: `NETLOAD` → выбрать нужную DLL.
+
+### «Неизвестная команда PERIDUMP / BEAMLOAD»
+Команды появляются только после загрузки DLL. Если модуль загрузился, в командной строке
+будет строка `BeamCheck загружен. Команды: …`.
+1. Узнайте версию AutoCAD под PERI CAD: команда `ACADVER`.
+   - `24.x` (AutoCAD 2021–2024) → `Contents\Acad\net48\BeamCheck.Acad.dll`
+   - `25.x` и выше (AutoCAD 2025+) → `Contents\Acad\net8\BeamCheck.Acad.dll`
+2. Если файлы скачаны из интернета или почты, Windows их блокирует: ПКМ по DLL →
+   «Свойства» → «Разблокировать» (или запустить `install.ps1`, он делает это сам).
+3. `NETLOAD` → выбрать DLL из п. 1. Если загрузка не удалась, AutoCAD выведет сообщение
+   об ошибке — пришлите его текст.
+4. Чтобы модуль загружался сам, положите папку `BeamCheck.bundle` в
+   `%APPDATA%\Autodesk\ApplicationPlugins` (это делает `install.ps1`) и перезапустите PERI CAD.
+
+Готовый пакет со всеми вариантами собирает GitHub Actions: вкладка **Actions** → последний
+запуск `build` → артефакт **BeamCheck-PERICAD**.

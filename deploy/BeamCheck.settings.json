@@ -1,5 +1,5 @@
 {
-  "SettingsVersion": 2,
+  "SettingsVersion": 3,
   "LoadClasses": [
     {
       "Class": 1,
@@ -55,7 +55,7 @@
   "Rules": [
     {
       "Kind": "Beam",
-      "Pattern": "(?i)(gitterträger|gittertraeger|multiträger|multitraeger|träger|traeger|girder|балк|двутавр|(?<![A-Z0-9])(ULS|ULA|ELM|VT ?20|GT ?24|HEB|HEA|IPE|UPE)(?![A-Z]))"
+      "Pattern": "(?i)(gitterträger|gittertraeger|multiträger|multitraeger|träger|traeger|girder|балк|двутавр|(?<![A-Z0-9])(SRU|RCS|ULS|ULA|ELM|VT ?20|GT ?24|HEB|HEA|IPE|UPE)(?![A-Z]))"
     },
     {
       "Kind": "Deck",

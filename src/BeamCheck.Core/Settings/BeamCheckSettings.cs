@@ -17,7 +17,7 @@ namespace BeamCheck.Core.Settings
         }
 
         /// <summary>Bumped when defaults change in a way old settings files must not keep.</summary>
-        public const int CurrentVersion = 2;
+        public const int CurrentVersion = 3;
 
         [DataMember(Order = 0)] public int SettingsVersion { get; set; }
 
@@ -218,7 +218,7 @@ namespace BeamCheck.Core.Settings
             // Defaults are educated guesses; adjust them to PERI CAD data after running PERIDUMP.
             Rules = new List<RecognitionRule>
             {
-                new RecognitionRule("Beam", @"(?i)(gitterträger|gittertraeger|multiträger|multitraeger|träger|traeger|girder|балк|двутавр|(?<![A-Z0-9])(ULS|ULA|ELM|VT ?20|GT ?24|HEB|HEA|IPE|UPE)(?![A-Z]))"),
+                new RecognitionRule("Beam", @"(?i)(gitterträger|gittertraeger|multiträger|multitraeger|träger|traeger|girder|балк|двутавр|(?<![A-Z0-9])(SRU|RCS|ULS|ULA|ELM|VT ?20|GT ?24|HEB|HEA|IPE|UPE)(?![A-Z]))"),
                 new RecognitionRule("Deck", @"(?i)(deck|belag|plattform|platform|настил|(?<![A-Z0-9])(UD[IGPLA]|UAP)(?![A-Z]))"),
                 new RecognitionRule("Diagonal", @"(?i)(diagonal|диагонал|(?<![A-Z0-9])(UBL|UVD)(?![A-Z]))"),
                 new RecognitionRule("Accessory", @"(?i)(toe ?board|bordbrett|guard ?rail|gel[aä]nder|ограж|борт)"),

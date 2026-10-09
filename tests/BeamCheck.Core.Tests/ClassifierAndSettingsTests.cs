@@ -129,3 +129,32 @@ namespace BeamCheck.Core.Tests
         }
     }
 }
+
+namespace BeamCheck.Core.Tests
+{
+    public class BeamNameRecognitionTests
+    {
+        [Theory]
+        [InlineData("SRU 200")]
+        [InlineData("RCS Schiene 4.5")]
+        [InlineData("Sru 300 x 2000")]
+        [InlineData("Gitterträger ULS 450")]
+        public void Upper_beams_are_recognised_by_name(string name)
+        {
+            var sig = new Recognition.ElementSignature { EntityType = "Part", Layer = "0" };
+            sig.Add("PART:Name", name);
+            Assert.Equal(Model.ElementKind.Beam, new Recognition.ElementClassifier(new Settings.BeamCheckSettings()).Classify(sig).Kind);
+        }
+
+        [Theory]
+        [InlineData("UH 150 +", Model.ElementKind.Ledger)]
+        [InlineData("UVR 200", Model.ElementKind.Standard)]
+        [InlineData("Stahlbelag UDG 25x300", Model.ElementKind.Deck)]
+        public void Scaffold_parts_are_not_taken_for_beams(string name, Model.ElementKind expected)
+        {
+            var sig = new Recognition.ElementSignature { EntityType = "Part", Layer = "PERI_UP" };
+            sig.Add("PART:Name", name);
+            Assert.Equal(expected, new Recognition.ElementClassifier(new Settings.BeamCheckSettings()).Classify(sig).Kind);
+        }
+    }
+}

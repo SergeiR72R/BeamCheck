@@ -31,11 +31,11 @@ namespace BeamCheck.Core.Analysis
         /// <summary>Distance from the (possibly flipped) beam start, mm.</summary>
         public double Position { get; set; }
 
-        /// <summary>Loaded area: deck area of the levels that carry live load, m².</summary>
+        /// <summary>Tributary deck area over all levels up to the top of the column, m².</summary>
         public double AreaM2 { get; set; }
 
-        /// <summary>Tributary deck area over all levels (loaded or not), m².</summary>
-        public double DeckAreaAllLevelsM2 { get; set; }
+        /// <summary>Part of <see cref="AreaM2"/> that carries live load (levels with a factor above 0), m².</summary>
+        public double LoadedAreaM2 { get; set; }
 
         /// <summary>Permanent load (all self-weights), kN.</summary>
         public double Gk { get; set; }
@@ -231,8 +231,8 @@ namespace BeamCheck.Core.Analysis
                     });
                 }
 
-                p.DeckAreaAllLevelsM2 = p.Levels.Sum(l => l.AreaM2);
-                p.AreaM2 = p.Levels.Where(l => l.Factor > 0).Sum(l => l.AreaM2);
+                p.AreaM2 = p.Levels.Sum(l => l.AreaM2);
+                p.LoadedAreaM2 = p.Levels.Where(l => l.Factor > 0).Sum(l => l.AreaM2);
                 p.Qk = p.Levels.Sum(l => l.Qk);
                 p.Fd = o.GammaG * p.Gk + o.GammaQ * p.Qk;
                 result.Points.Add(p);

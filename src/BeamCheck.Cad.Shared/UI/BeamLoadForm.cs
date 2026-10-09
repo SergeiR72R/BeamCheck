@@ -222,7 +222,7 @@ namespace BeamCheck.Cad.UI
                     _nf.Num(p.Fk, 2), _nf.Num(p.Fd, 2), _nf.Num(p.TransferFk, 2), _nf.Mm(p.ZTop), p.SectionCount, perLevel);
             }
 
-            _resultsBox.Text = string.Format("Summary:  площадь {0} м²   |   live load {1} кН   |   self weight load {2} кН   |   total load {3} кН",
+            _resultsBox.Text = string.Format("Summary:  площадь (все ярусы до верха) {0} м²   |   live load {1} кН   |   self weight load {2} кН   |   total load {3} кН",
                 _nf.Num(r.Points.Sum(p => p.AreaM2), 2), _nf.Num(r.Points.Sum(p => p.Qk), 2),
                 _nf.Num(r.Points.Sum(p => p.Gk), 2), _nf.Num(r.Points.Sum(p => p.Fk), 2));
 

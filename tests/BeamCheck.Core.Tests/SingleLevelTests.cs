@@ -41,17 +41,18 @@ namespace BeamCheck.Core.Tests
             Assert.True(qOne > 0 && qOne < qAll);
             Assert.Equal(all.Result.Points.Sum(p => p.Gk), one.Result.Points.Sum(p => p.Gk), 9);
             // q = 2 kN/m² on the governing level's area.
-            Assert.Equal(2.0 * one.Result.Points.Sum(p => p.AreaM2), qOne, 6);
+            Assert.Equal(2.0 * one.Result.Points.Sum(p => p.LoadedAreaM2), qOne, 6);
         }
 
         [Fact]
-        public void Area_is_the_loaded_area_not_the_sum_over_all_levels()
+        public void Area_covers_all_levels_to_the_top_and_the_loaded_part_is_reported_separately()
         {
             var s = ThreeLevels();
             var p = s.Result.Points[1];
 
-            Assert.True(p.DeckAreaAllLevelsM2 > p.AreaM2);
-            Assert.Equal(p.Levels.Single(l => l.Factor > 0).AreaM2, p.AreaM2, 9);
+            Assert.Equal(p.Levels.Sum(l => l.AreaM2), p.AreaM2, 9);
+            Assert.Equal(p.Levels.Single(l => l.Factor > 0).AreaM2, p.LoadedAreaM2, 9);
+            Assert.True(p.AreaM2 > p.LoadedAreaM2);
         }
 
         [Fact]
@@ -63,7 +64,7 @@ namespace BeamCheck.Core.Tests
             Assert.Equal(new[] { "Стойка", "X, мм", "Площадь, м²", "Live load, кН", "Self weight, кН", "Total load, кН" }, t.Header.Take(6));
             var sum = t.Rows.Last();
             Assert.Equal("Σ", sum[0]);
-            Assert.Contains(t.Notes, n => n.StartsWith("Summary: площадь = ") && n.Contains("live load = ") && n.Contains("self weight load = ") && n.Contains("total load = "));
+            Assert.Contains(t.Notes, n => n.StartsWith("Summary: площадь (все ярусы до верха) = ") && n.Contains("live load = ") && n.Contains("self weight load = ") && n.Contains("total load = "));
 
             var r = s.Result;
             string live = new NumberFormat(",").Num(r.Points.Sum(p => p.Qk), 2);

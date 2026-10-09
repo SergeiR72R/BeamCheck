@@ -60,7 +60,8 @@ namespace BeamCheck.Core.Report
                 sum.Add(f.Num(r.Points.Sum(p => p.TransferFk), 2));
             t.Rows.Add(sum);
 
-            t.Notes.Add("Summary: площадь = " + f.Num(area, 2) + " м², live load = " + f.Num(live, 2) + " кН, self weight load = "
+            double loaded = r.Points.Sum(p => p.LoadedAreaM2);
+            t.Notes.Add("Summary: площадь (все ярусы до верха) = " + f.Num(area, 2) + " м², live load = " + f.Num(live, 2) + " кН, self weight load = "
                         + f.Num(self, 2) + " кН, total load = " + f.Num(total, 2) + " кН");
             t.Notes.Add("Класс нагрузки " + r.LoadClass + " (EN 12811-1): q = " + f.Num(r.ServiceLoad, 2) + " кН/м²");
             var levelNotes = r.Points.SelectMany(p => p.Levels)
@@ -70,7 +71,8 @@ namespace BeamCheck.Core.Report
                 .Select(g => "ярус " + g.Key + " (Z=" + f.Mm(g.First().Level.Z) + "): " + f.Num(g.First().Factor * 100, 0) + "%")
                 .ToList();
             if (levelNotes.Count > 0)
-                t.Notes.Add("Live load приложен на: " + string.Join("; ", levelNotes) + "; на остальных ярусах 0 (работы ведутся на одном ярусе)");
+                t.Notes.Add("Live load приложен на: " + string.Join("; ", levelNotes) + " (площадь под live load " + f.Num(loaded, 2)
+                            + " м²); на остальных ярусах 0 (работы ведутся на одном ярусе)");
             t.Notes.Add("Total load = self weight + live load (нормативные); Fd = " + f.Num(r.GammaG, 2) + "·self weight + " + f.Num(r.GammaQ, 2) + "·live load; на схеме — " + (r.ShowDesignValues ? "Fd" : "total load"));
             return t;
         }

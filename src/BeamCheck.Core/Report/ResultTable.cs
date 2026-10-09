@@ -27,9 +27,12 @@ namespace BeamCheck.Core.Report
             };
 
             bool transfer = r.Points.Any(p => p.TransferFk > 0.005);
-            t.Header.AddRange(new[] { "Стойка", "X, мм", "A, м²", "Gk, кН", "Qk, кН", "Fk, кН", "Fd, кН" });
+            bool design = r.ShowDesignValues;
+            t.Header.AddRange(new[] { "Стойка", "X, мм", "Площадь, м²", "Live load, кН", "Self weight, кН", "Total load, кН" });
+            if (design)
+                t.Header.Add("Total Fd, кН");
             if (transfer)
-                t.Header.Add("в т.ч. с верх. балок Fk, кН");
+                t.Header.Add("в т.ч. с верх. балок, кН");
             foreach (var p in r.Points)
             {
                 var row = new List<string>
@@ -37,39 +40,38 @@ namespace BeamCheck.Core.Report
                     p.Name,
                     f.Mm(p.Position),
                     f.Num(p.AreaM2, 2),
-                    f.Num(p.Gk, 2),
                     f.Num(p.Qk, 2),
+                    f.Num(p.Gk, 2),
                     f.Num(p.Fk, 2),
-                    f.Num(p.Fd, 2),
                 };
+                if (design)
+                    row.Add(f.Num(p.Fd, 2));
                 if (transfer)
                     row.Add(f.Num(p.TransferFk, 2));
                 t.Rows.Add(row);
             }
 
-            var sum = new List<string>
-            {
-                "Σ",
-                "",
-                f.Num(r.Points.Sum(p => p.AreaM2), 2),
-                f.Num(r.Points.Sum(p => p.Gk), 2),
-                f.Num(r.Points.Sum(p => p.Qk), 2),
-                f.Num(r.Points.Sum(p => p.Fk), 2),
-                f.Num(r.Points.Sum(p => p.Fd), 2),
-            };
+            double area = r.Points.Sum(p => p.AreaM2), live = r.Points.Sum(p => p.Qk);
+            double self = r.Points.Sum(p => p.Gk), total = r.Points.Sum(p => p.Fk);
+            var sum = new List<string> { "Σ", "", f.Num(area, 2), f.Num(live, 2), f.Num(self, 2), f.Num(total, 2) };
+            if (design)
+                sum.Add(f.Num(r.Points.Sum(p => p.Fd), 2));
             if (transfer)
                 sum.Add(f.Num(r.Points.Sum(p => p.TransferFk), 2));
             t.Rows.Add(sum);
 
+            t.Notes.Add("Summary: площадь = " + f.Num(area, 2) + " м², live load = " + f.Num(live, 2) + " кН, self weight load = "
+                        + f.Num(self, 2) + " кН, total load = " + f.Num(total, 2) + " кН");
             t.Notes.Add("Класс нагрузки " + r.LoadClass + " (EN 12811-1): q = " + f.Num(r.ServiceLoad, 2) + " кН/м²");
             var levelNotes = r.Points.SelectMany(p => p.Levels)
+                .Where(l => l.Factor > 0)
                 .GroupBy(l => l.Level.Index)
                 .OrderBy(g => g.Key)
-                .Select(g => "ярус " + g.Key + " (Z=" + f.Mm(g.First().Level.Z) + "): " + f.Num(g.First().Factor * 100, 0) + "%q")
+                .Select(g => "ярус " + g.Key + " (Z=" + f.Mm(g.First().Level.Z) + "): " + f.Num(g.First().Factor * 100, 0) + "%")
                 .ToList();
             if (levelNotes.Count > 0)
-                t.Notes.Add("Полезная нагрузка по ярусам: " + string.Join("; ", levelNotes));
-            t.Notes.Add("Fd = " + f.Num(r.GammaG, 2) + "·Gk + " + f.Num(r.GammaQ, 2) + "·Qk; на схеме — " + (r.ShowDesignValues ? "Fd" : "Fk"));
+                t.Notes.Add("Live load приложен на: " + string.Join("; ", levelNotes) + "; на остальных ярусах 0 (работы ведутся на одном ярусе)");
+            t.Notes.Add("Total load = self weight + live load (нормативные); Fd = " + f.Num(r.GammaG, 2) + "·self weight + " + f.Num(r.GammaQ, 2) + "·live load; на схеме — " + (r.ShowDesignValues ? "Fd" : "total load"));
             return t;
         }
 

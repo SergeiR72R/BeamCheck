@@ -31,8 +31,11 @@ namespace BeamCheck.Core.Analysis
         /// <summary>Distance from the (possibly flipped) beam start, mm.</summary>
         public double Position { get; set; }
 
-        /// <summary>Total tributary deck area over all levels, m².</summary>
+        /// <summary>Loaded area: deck area of the levels that carry live load, m².</summary>
         public double AreaM2 { get; set; }
+
+        /// <summary>Tributary deck area over all levels (loaded or not), m².</summary>
+        public double DeckAreaAllLevelsM2 { get; set; }
 
         /// <summary>Permanent load (all self-weights), kN.</summary>
         public double Gk { get; set; }
@@ -141,6 +144,19 @@ namespace BeamCheck.Core.Analysis
                 return result;
             }
 
+            if (string.Equals(s.LevelMode, LevelModes.SingleWorstLevel, StringComparison.OrdinalIgnoreCase))
+            {
+                // Only one level is worked on at a time: the live load goes on the level whose decks put the
+                // largest area on the selected standards (ties: the higher level).
+                var areas = topo.Levels.ToDictionary(l => l.Index, l => topo.Contributions
+                    .Where(c => c.Type == ContributionType.Deck && c.Level == l)
+                    .Sum(c => c.AreaM2));
+                int worst = areas.OrderByDescending(kv => kv.Value).ThenByDescending(kv => kv.Key).First().Key;
+                foreach (var l in topo.Levels)
+                    result[l.Index] = l.Index == worst ? s.MainLevelFactor : s.OtherLevelFactor;
+                return result;
+            }
+
             var area = topo.Levels.ToDictionary(l => l.Index, l => topo.Contributions
                 .Where(c => c.Type == ContributionType.Deck && c.Level == l)
                 .Sum(c => c.AreaM2));
@@ -215,7 +231,8 @@ namespace BeamCheck.Core.Analysis
                     });
                 }
 
-                p.AreaM2 = p.Levels.Sum(l => l.AreaM2);
+                p.DeckAreaAllLevelsM2 = p.Levels.Sum(l => l.AreaM2);
+                p.AreaM2 = p.Levels.Where(l => l.Factor > 0).Sum(l => l.AreaM2);
                 p.Qk = p.Levels.Sum(l => l.Qk);
                 p.Fd = o.GammaG * p.Gk + o.GammaQ * p.Qk;
                 result.Points.Add(p);

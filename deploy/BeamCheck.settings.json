@@ -1,5 +1,5 @@
 {
-  "SettingsVersion": 3,
+  "SettingsVersion": 4,
   "LoadClasses": [
     {
       "Class": 1,
@@ -27,7 +27,7 @@
     }
   ],
   "DefaultLoadClass": 3,
-  "LevelMode": "AllLevels",
+  "LevelMode": "SingleWorstLevel",
   "MainLevelFactor": 1,
   "AdjacentLevelFactor": 0.5,
   "OtherLevelFactor": 0,

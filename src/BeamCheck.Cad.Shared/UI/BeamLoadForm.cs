@@ -39,6 +39,7 @@ namespace BeamCheck.Cad.UI
         private DataGridView _results;
         private TextBox _warnings;
         private Label _info;
+        private GroupBox _resultsBox;
 
         public BeamLoadForm(BeamLoadSession session)
         {
@@ -79,7 +80,7 @@ namespace BeamCheck.Cad.UI
             foreach (var c in _session.Settings.LoadClasses)
                 _loadClass.Items.Add(new ClassItem(c, _nf));
             _levelMode = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 260 };
-            _levelMode.Items.AddRange(new object[] { "Расчётный ярус 100% + один соседний 50% (EN 12811-1)", "Все ярусы 100% (до верха стойки)" });
+            _levelMode.Items.AddRange(new object[] { "Live load на одном ярусе — самом нагруженном", "Live load на всех ярусах 100%", "Один ярус 100% + один соседний 50% (EN 12811-1)" });
             _gammaG = Num(1.35m);
             _gammaQ = Num(1.5m);
             _showDesign = new CheckBox { Text = "На схеме — расчётные Fd", AutoSize = true, Margin = new Padding(12, 6, 3, 3) };
@@ -104,12 +105,13 @@ namespace BeamCheck.Cad.UI
             root.Controls.Add(Group("Ярусы (коэффициент можно редактировать)", _levels));
 
             _results = Grid();
-            foreach (var h in new[] { "Стойка", "X, мм", "A, м²", "Gk, кН", "Qk, кН", "Fk, кН", "Fd, кН", "С верх. балок, кН", "Высота до Z, мм", "Секций", "По ярусам" })
+            foreach (var h in new[] { "Стойка", "X, мм", "Площадь, м²", "Live load, кН", "Self weight, кН", "Total load, кН", "Fd, кН", "С верх. балок, кН", "Высота до Z, мм", "Секций", "По ярусам" })
                 _results.Columns.Add(h, h);
             _results.Columns[10].AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
             foreach (DataGridViewColumn c in _results.Columns)
                 c.ReadOnly = true;
-            root.Controls.Add(Group("Нагрузки на балку", _results));
+            _resultsBox = Group("Нагрузки на балку", _results);
+            root.Controls.Add(_resultsBox);
 
             _warnings = new TextBox { Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical, Dock = DockStyle.Fill, ForeColor = Color.DarkRed };
             root.Controls.Add(_warnings);
@@ -139,7 +141,7 @@ namespace BeamCheck.Cad.UI
             {
                 if (_updating)
                     return;
-                _session.Settings.LevelMode = _levelMode.SelectedIndex == 1 ? LevelModes.AllLevels : LevelModes.WorstLevelPlusAdjacent;
+                _session.Settings.LevelMode = _levelMode.SelectedIndex == 1 ? LevelModes.AllLevels : _levelMode.SelectedIndex == 2 ? LevelModes.WorstLevelPlusAdjacent : LevelModes.SingleWorstLevel;
                 _session.ResetLevelFactors();
                 RefreshAll();
             };
@@ -150,7 +152,8 @@ namespace BeamCheck.Cad.UI
             _updating = true;
             var o = _session.Options;
             _loadClass.SelectedIndex = Math.Max(0, _session.Settings.LoadClasses.FindIndex(c => c.Class == o.LoadClass));
-            _levelMode.SelectedIndex = string.Equals(_session.Settings.LevelMode, LevelModes.AllLevels, StringComparison.OrdinalIgnoreCase) ? 1 : 0;
+            _levelMode.SelectedIndex = string.Equals(_session.Settings.LevelMode, LevelModes.AllLevels, StringComparison.OrdinalIgnoreCase) ? 1
+                : string.Equals(_session.Settings.LevelMode, LevelModes.WorstLevelPlusAdjacent, StringComparison.OrdinalIgnoreCase) ? 2 : 0;
             _gammaG.Value = (decimal)o.GammaG;
             _gammaQ.Value = (decimal)o.GammaQ;
             _showDesign.Checked = o.ShowDesignValues;
@@ -215,9 +218,13 @@ namespace BeamCheck.Cad.UI
             {
                 string perLevel = string.Join("; ", p.Levels.Select(l =>
                     $"{l.Level.Index}: {_nf.Num(l.AreaM2, 2)} м² × {_nf.Num(l.Factor * 100, 0)}% → Q {_nf.Num(l.Qk, 2)}, G дек {_nf.Num(l.DeckGk, 2)}"));
-                _results.Rows.Add(p.Name, _nf.Mm(p.Position), _nf.Num(p.AreaM2, 2), _nf.Num(p.Gk, 2), _nf.Num(p.Qk, 2),
+                _results.Rows.Add(p.Name, _nf.Mm(p.Position), _nf.Num(p.AreaM2, 2), _nf.Num(p.Qk, 2), _nf.Num(p.Gk, 2),
                     _nf.Num(p.Fk, 2), _nf.Num(p.Fd, 2), _nf.Num(p.TransferFk, 2), _nf.Mm(p.ZTop), p.SectionCount, perLevel);
             }
+
+            _resultsBox.Text = string.Format("Summary:  площадь {0} м²   |   live load {1} кН   |   self weight load {2} кН   |   total load {3} кН",
+                _nf.Num(r.Points.Sum(p => p.AreaM2), 2), _nf.Num(r.Points.Sum(p => p.Qk), 2),
+                _nf.Num(r.Points.Sum(p => p.Gk), 2), _nf.Num(r.Points.Sum(p => p.Fk), 2));
 
             _warnings.Text = r.Warnings.Count == 0 ? "Замечаний нет." : string.Join(Environment.NewLine, r.Warnings.Distinct());
         }

@@ -17,7 +17,7 @@ namespace BeamCheck.Core.Settings
         }
 
         /// <summary>Bumped when defaults change in a way old settings files must not keep.</summary>
-        public const int CurrentVersion = 3;
+        public const int CurrentVersion = 4;
 
         [DataMember(Order = 0)] public int SettingsVersion { get; set; }
 
@@ -187,7 +187,7 @@ namespace BeamCheck.Core.Settings
             };
             DefaultLoadClass = 3;
             SettingsVersion = CurrentVersion;
-            LevelMode = LevelModes.AllLevels;
+            LevelMode = LevelModes.SingleWorstLevel;
             MainLevelFactor = 1.0;
             AdjacentLevelFactor = 0.5;
             OtherLevelFactor = 0.0;
@@ -261,6 +261,9 @@ namespace BeamCheck.Core.Settings
 
     public static class LevelModes
     {
+        /// <summary>Live load on ONE level, the one with the largest loaded area (people work on one level at a time).</summary>
+        public const string SingleWorstLevel = "SingleWorstLevel";
+
         public const string WorstLevelPlusAdjacent = "WorstLevelPlusAdjacent";
         public const string AllLevels = "AllLevels";
     }

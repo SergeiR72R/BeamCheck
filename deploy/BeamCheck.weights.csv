@@ -1,38 +1,38 @@
-﻿# BeamCheck: вес деталей по артикулам. Колонки: Артикул;Вес_кг;Название
-# Заполните Вес_кг из спецификации PERI (десятичный разделитель . или ,). Строки без веса игнорируются
-# и считаются по запасным значениям из настроек (отмечается в предупреждениях).
+﻿# BeamCheck: вес деталей по артикулам (кг). Источник: Stückliste PERI CAD 24 (partlists_20261009).
+# Колонки: Article;WeightKg;Name. Десятичный разделитель . или ,. Строки без веса игнорируются
+# и считаются по запасным значениям из настроек (в диалоге выводится предупреждение).
 Article;WeightKg;Name
-100000;;UVH 100
-117195;;UVH 125
-100003;;UVH 150
-100005;;UVH 200
-100007;;UVH 250
-101309;;UVH 50
-101306;;UVR 100
-102860;;UVR 150
-100009;;UVR 200
-100012;;UVR 300
-102859;;UVR 50
-114632;;UH 100 +
-114638;;UH 125 +
-114641;;UH 150 +
-117032;;UH 175 +
-114645;;UH 200 +
-116356;;UH 225
-114613;;UH 25 +
-114648;;UH 250 +
-114651;;UH 300 +
-114595;;UH 50 +
-114629;;UH 75 +
-114681;;UHV 150 PLUS
-114687;;UHV 200 PLUS
-114691;;UHV 250 PLUS
-114695;;UHV 300 PLUS
-124118;;Stahlbelag UDG 25x100
-124115;;Stahlbelag UDG 25x125
-124112;;Stahlbelag UDG 25x150
-124109;;Stahlbelag UDG 25x200
-123771;;Stahlbelag UDG 25x250
-124915;;Stahlbelag UDG 25x300
-124124;;Stahlbelag UDG 25x50
-124121;;Stahlbelag UDG 25x75
+102859;3.08;Vertikalstiel UVR 50
+101306;5.38;Vertikalstiel UVR 100
+102860;7.69;Vertikalstiel UVR 150
+100009;10;Vertikalstiel UVR 200
+100012;14.7;Vertikalstiel UVR 300
+101309;2.51;Kopfstiel UVH 50
+100000;4.61;Kopfstiel UVH 100
+117195;7.6;Kopfstiel UVH 125
+100003;6.92;Kopfstiel UVH 150
+100005;9.24;Kopfstiel UVH 200
+100007;11.5;Kopfstiel UVH 250
+114681;10.9;Horizontalriegel UHV 150 Plus
+114687;14.7;Horizontalriegel UHV 200 Plus
+114691;17.9;Horizontalriegel UHV 250 Plus
+114695;21.6;Horizontalriegel UHV 300 Plus
+114613;1.42;Horizontalriegel UH 25 Plus
+114595;2.07;Horizontalriegel UH 50 Plus
+114629;2.73;Horizontalriegel UH 75 Plus
+114632;4.39;Horizontalriegel UH 100 Plus
+114638;5.34;Horizontalriegel UH 125 Plus
+114641;4.72;Horizontalriegel UH 150 Plus
+117032;5.38;Horizontalriegel UH 175 Plus
+114645;6.04;Horizontalriegel UH 200 Plus
+116356;6.7;Horizontalriegel UH 225 Plus
+114648;7.36;Horizontalriegel UH 250 Plus
+114651;8.68;Horizontalriegel UH 300 Plus
+124124;3.88;Stahlbelag UDG 25 x 50
+124121;5.26;Stahlbelag UDG 25 x 75
+124118;6.63;Stahlbelag UDG 25 x 100
+124115;8.01;Stahlbelag UDG 25 x 125
+124112;9.41;Stahlbelag UDG 25 x 150
+124109;12.2;Stahlbelag UDG 25 x 200
+123771;14.9;Stahlbelag UDG 25 x 250
+124915;17.7;Stahlbelag UDG 25 x 300

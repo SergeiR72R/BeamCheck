@@ -3,6 +3,7 @@ name: build
 on:
   push:
   pull_request:
+  workflow_dispatch:
 
 jobs:
   build:
@@ -12,9 +13,13 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
-      - name: Core tests
-        run: dotnet test tests/BeamCheck.Core.Tests -c Release
-      - name: PERI CAD 24 / AutoCAD (net48)
-        run: dotnet build src/BeamCheck.Acad -c Release
-      - name: Shared CAD code on .NET 8 (compile check for BricsCAD V26 path)
-        run: dotnet build src/BeamCheck.Acad -c Release -p:AcadTargetFramework=net8.0-windows -p:AutoCADNetVersion=25.1.0 -p:BaseIntermediateOutputPath=obj-net8/ -o out/acad-net8
+      - name: Build, test and assemble BeamCheck.bundle
+        shell: pwsh
+        run: ./deploy/build.ps1
+      - name: Upload installable package
+        uses: actions/upload-artifact@v4
+        with:
+          name: BeamCheck-PERICAD
+          path: |
+            dist/BeamCheck.bundle
+            dist/install.ps1

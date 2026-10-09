@@ -59,7 +59,10 @@ namespace BeamCheck.Core.Recognition
             if (longest.Length < _s.ShapeMinLength)
                 return ElementKind.Unknown;
 
-            if (box.PlanDiagonal <= _s.ShapeStandardMaxPlan && box.Dz >= _s.ShapeMinLength)
+            // Tall and slender. A bounding box (no axis line available) of a 160 x 160 tube has a 226 mm
+            // diagonal, so the longer plan side is compared, not the diagonal.
+            double planSide = Math.Max(box.Max.X - box.Min.X, box.Max.Y - box.Min.Y);
+            if (planSide <= _s.ShapeStandardMaxPlan && box.Dz >= _s.ShapeMinLength && box.Dz >= 2.5 * planSide)
                 return ElementKind.Standard;
 
             var horizontal = LongestHorizontal(segs);
@@ -94,9 +97,11 @@ namespace BeamCheck.Core.Recognition
                 double cx, cy;
                 if (verticals.Count > 0)
                 {
-                    var main = verticals.OrderByDescending(s => s.Dz).First();
-                    cx = (main.A.X + main.B.X) / 2;
-                    cy = (main.A.Y + main.B.Y) / 2;
+                    // One axis line, or the 4 corner edges of a bounding box: their mean is the axis.
+                    double maxDz = verticals.Max(s => s.Dz);
+                    var main = verticals.Where(s => s.Dz >= 0.8 * maxDz).ToList();
+                    cx = main.Average(s => (s.A.X + s.B.X) / 2);
+                    cy = main.Average(s => (s.A.Y + s.B.Y) / 2);
                 }
                 else
                 {

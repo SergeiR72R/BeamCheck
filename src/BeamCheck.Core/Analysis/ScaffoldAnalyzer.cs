@@ -48,11 +48,11 @@ namespace BeamCheck.Core.Analysis
             var topo = new Topology { Beam = input.Beam };
             bool Active(ScaffoldElement e) => e != null && !input.ExcludedIds.Contains(e.Id);
 
-            var combined = input.Candidates.Where(Active).ToList();
-            var ids = new HashSet<string>(combined.Select(e => e.Id));
-            foreach (var s in input.SelectedStandards.Where(Active))
-                if (ids.Add(s.Id))
-                    combined.Add(s);
+            // What the user picked as a standard wins over how the same object was classified during the scan.
+            var picked = input.SelectedStandards.Where(Active).ToList();
+            var pickedIds = new HashSet<string>(picked.Select(e => e.Id));
+            var combined = input.Candidates.Where(Active).Where(e => !pickedIds.Contains(e.Id)).ToList();
+            combined.AddRange(picked);
             var all = Deduplicate(combined).ToList();
 
             var standards = all.Where(e => e.Kind == ElementKind.Standard).ToList();

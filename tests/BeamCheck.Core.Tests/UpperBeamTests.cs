@@ -140,3 +140,31 @@ namespace BeamCheck.Core.Tests
         }
     }
 }
+
+namespace BeamCheck.Core.Tests
+{
+    public class PickedStandardTests
+    {
+        [Fact]
+        public void A_picked_standard_overrides_the_scan_classification_of_the_same_object()
+        {
+            var b = ScaffoldBuilder.Example(2000);
+            var picked = b.BeamRowStandards.First();
+            // The scan saw the very same object (same id) as an accessory.
+            var scanned = new ScaffoldElement
+            {
+                Id = picked.Id, Kind = ElementKind.Accessory, Start = picked.Start, End = picked.End,
+                ZMin = picked.ZMin, ZMax = picked.ZMax,
+            };
+            var input = b.Input(new[] { picked });
+            for (int i = 0; i < input.Candidates.Count; i++)
+                if (input.Candidates[i].Id == picked.Id)
+                    input.Candidates[i] = scanned;
+
+            var s = new BeamLoadSession(new BeamCheckSettings(), input);
+
+            Assert.Single(s.Topology.Columns);
+            Assert.NotEmpty(s.Topology.Columns[0].Sections);
+        }
+    }
+}

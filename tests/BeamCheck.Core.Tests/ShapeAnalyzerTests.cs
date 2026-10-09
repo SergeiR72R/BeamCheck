@@ -73,3 +73,35 @@ namespace BeamCheck.Core.Tests
         }
     }
 }
+
+namespace BeamCheck.Core.Tests
+{
+    public class BoundingBoxStandardTests
+    {
+        [Fact]
+        public void A_160_tube_given_only_as_a_bounding_box_is_a_standard()
+        {
+            var c = new List<Geometry.Vec3>();
+            for (int i = 0; i < 8; i++)
+                c.Add(new Geometry.Vec3((i & 1) == 0 ? 1175976 : 1176136, (i & 2) == 0 ? 1374465 : 1374625, (i & 4) == 0 ? 125958 : 128118));
+            var segs = Recognition.ShapeAnalyzer.BoxEdges(c);
+            var shape = new Recognition.ShapeAnalyzer(new Settings.BeamCheckSettings());
+
+            Assert.Equal(Model.ElementKind.Standard, shape.Guess(segs));
+            var e = shape.Build(segs, Model.ElementKind.Standard);
+            Assert.Equal(1176056, e.Start.X, 3);
+            Assert.Equal(1374545, e.Start.Y, 3);
+            Assert.Equal(125958, e.ZMin, 3);
+            Assert.Equal(128118, e.ZMax, 3);
+        }
+
+        [Fact]
+        public void A_squat_box_is_not_a_standard()
+        {
+            var c = new List<Geometry.Vec3>();
+            for (int i = 0; i < 8; i++)
+                c.Add(new Geometry.Vec3((i & 1) == 0 ? 0 : 160, (i & 2) == 0 ? 0 : 160, (i & 4) == 0 ? 0 : 300));
+            Assert.NotEqual(Model.ElementKind.Standard, new Recognition.ShapeAnalyzer(new Settings.BeamCheckSettings()).Guess(Recognition.ShapeAnalyzer.BoxEdges(c)));
+        }
+    }
+}

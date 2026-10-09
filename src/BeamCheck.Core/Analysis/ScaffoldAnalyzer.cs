@@ -500,41 +500,95 @@ namespace BeamCheck.Core.Analysis
         private void AddDecks(Topology topo, List<Column> columns, List<Contribution> sink, List<ScaffoldElement> decks, List<ScaffoldElement> ledgers)
         {
             var deckContribs = new List<Contribution>();
+            int relaxed = 0, nearMissing = 0, halfSupported = 0;
+            var samples = new List<string>();
 
             foreach (var deck in decks)
             {
                 var found = new List<Contribution>();
-                bool unresolvedBearing = false;
+                int resolved = 0;
 
                 foreach (var bearing in new[] { deck.Start, deck.End })
                 {
+                    // Decks are often not seated exactly on the ledger in the model: try the normal tolerance
+                    // first, then a looser one.
                     var ledger = FindBearingLedger(deck, bearing, ledgers, out double t);
                     if (ledger == null)
                     {
-                        unresolvedBearing = true;
-                        continue;
+                        ledger = FindBearingLedger(deck, bearing, ledgers, out t, _s.DeckRelaxedFactor);
+                        if (ledger != null)
+                            relaxed++;
                     }
 
+                    if (ledger == null)
+                        continue;
+
+                    resolved++;
                     t = Math.Max(0, Math.Min(1, t));
                     AddDeckShare(topo, columns, found, deck, ledger, ledger.Start, 0.5 * (1 - t));
                     AddDeckShare(topo, columns, found, deck, ledger, ledger.End, 0.5 * t);
                 }
 
+                if (resolved < 2 && IsNearColumns(deck, columns))
+                {
+                    if (resolved == 0)
+                        nearMissing++;
+                    else
+                        halfSupported++;
+                    if (samples.Count < 4)
+                        samples.Add(DescribeMiss(deck, ledgers));
+                }
+
                 if (found.Count == 0)
                     continue;
-
-                if (unresolvedBearing)
-                {
-                    topo.Warnings.Add(string.Format(CultureInfo.InvariantCulture,
-                        "Дек {0}: не найден леджер под одной из опор — учтена только найденная половина нагрузки.", deck.DisplayName));
-                }
 
                 deckContribs.AddRange(found);
                 topo.UsedElementIds.Add(deck.Id);
             }
 
+            if (relaxed > 0)
+                topo.Warnings.Add("ℹ " + relaxed + " опор деков привязаны к леджерам с увеличенным допуском (дек лежит не вплотную к леджеру).");
+            if (nearMissing + halfSupported > 0)
+            {
+                topo.Warnings.Add(string.Format(CultureInfo.InvariantCulture,
+                    "Деки рядом со стойками без леджера под опорой: {0} без опор, {1} с одной опорой — нагрузка с них учтена частично или не учтена. Примеры (расстояние до ближайшего леджера: в плане / по высоте): {2}.",
+                    nearMissing, halfSupported, string.Join("; ", samples)));
+            }
+
             BuildLevels(topo, deckContribs);
             sink.AddRange(deckContribs);
+        }
+
+        private bool IsNearColumns(ScaffoldElement deck, List<Column> columns) =>
+            columns.Any(c => Vec3.DistanceXY(c.Axis, (deck.Start + deck.End) / 2) <= _s.NodeTolerance + deck.PlanLength + 500
+                             && deck.ZMin >= c.ZBottom - 300 && deck.ZMin <= c.ZTop + 300);
+
+        /// <summary>For a deck without a ledger: how far away the nearest ledger is (plan distance to its axis, height difference).</summary>
+        private string DescribeMiss(ScaffoldElement deck, List<ScaffoldElement> ledgers)
+        {
+            var parts = new List<string>();
+            foreach (var end in new[] { deck.Start, deck.End })
+            {
+                ScaffoldElement best = null;
+                double bestPlan = double.MaxValue;
+                foreach (var l in ledgers)
+                {
+                    if (Math.Abs(deck.ZMin - (l.Start.Z + l.End.Z) / 2) > 3000)
+                        continue;
+                    PlanGeometry.ProjectXY(l.Start, l.End, end, out double d);
+                    if (d < bestPlan)
+                    {
+                        bestPlan = d;
+                        best = l;
+                    }
+                }
+
+                parts.Add(best == null
+                    ? "леджера нет"
+                    : string.Format(CultureInfo.InvariantCulture, "{0:0} / {1:0} мм", bestPlan, deck.ZMin - (best.Start.Z + best.End.Z) / 2));
+            }
+
+            return deck.DisplayName + " Z=" + deck.ZMin.ToString("0", CultureInfo.InvariantCulture) + " [" + string.Join(" | ", parts) + "]";
         }
 
         private void AddDeckShare(Topology topo, List<Column> columns, List<Contribution> target, ScaffoldElement deck, ScaffoldElement ledger, Vec3 node, double share)
@@ -549,7 +603,7 @@ namespace BeamCheck.Core.Analysis
         }
 
         /// <summary>Ledger under one bearing edge of a deck; t = position of the bearing along the ledger.</summary>
-        private ScaffoldElement FindBearingLedger(ScaffoldElement deck, Vec3 bearing, List<ScaffoldElement> ledgers, out double t)
+        private ScaffoldElement FindBearingLedger(ScaffoldElement deck, Vec3 bearing, List<ScaffoldElement> ledgers, out double t, double factor = 1, bool ignoreHeight = false)
         {
             ScaffoldElement best = null;
             double bestDist = double.MaxValue;
@@ -559,11 +613,11 @@ namespace BeamCheck.Core.Analysis
             {
                 double ledgerZ = (l.Start.Z + l.End.Z) / 2;
                 double dz = deck.ZMin - ledgerZ;
-                if (dz < _s.DeckOverLedgerMin || dz > _s.DeckOverLedgerMax)
+                if (!ignoreHeight && (dz < _s.DeckOverLedgerMin * factor || dz > _s.DeckOverLedgerMax * factor))
                     continue;
 
                 double tt = PlanGeometry.ProjectXY(l.Start, l.End, bearing, out double dist);
-                if (dist > _s.DeckBearingTolerance || dist >= bestDist)
+                if (dist > _s.DeckBearingTolerance * factor || dist >= bestDist)
                     continue;
                 double slack = deck.Width / 2 / Math.Max(1, l.PlanLength);
                 if (tt < -slack || tt > 1 + slack)

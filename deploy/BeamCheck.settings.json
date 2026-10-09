@@ -1,5 +1,5 @@
 {
-  "SettingsVersion": 4,
+  "SettingsVersion": 5,
   "LoadClasses": [
     {
       "Class": 1,
@@ -36,15 +36,16 @@
   "ShowDesignValues": false,
   "ColumnXYTolerance": 30,
   "NodeTolerance": 120,
-  "DeckBearingTolerance": 120,
-  "DeckOverLedgerMin": -100,
-  "DeckOverLedgerMax": 200,
+  "DeckBearingTolerance": 200,
+  "DeckOverLedgerMin": -200,
+  "DeckOverLedgerMax": 350,
   "BeamPlanTolerance": 150,
   "ColumnOnBeamZTolerance": 600,
   "LevelZTolerance": 150,
   "SearchRadius": 5000,
   "ColumnGapTolerance": 300,
   "UpperBeamBearingTolerance": 400,
+  "DeckRelaxedFactor": 3,
   "StandardKgPerM": 5.5,
   "LedgerKgPerM": 3.5,
   "DeckKgPerM2": 22,

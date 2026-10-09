@@ -37,4 +37,5 @@ if ($BricsCADDir -and (Test-Path (Join-Path $BricsCADDir "BrxMgd.dll"))) {
 }
 
 Copy-Item (Join-Path $PSScriptRoot "install.ps1") (Split-Path $dist -Parent)
+Copy-Item (Join-Path $PSScriptRoot "install.cmd") (Split-Path $dist -Parent)
 Write-Host "Done: $dist"

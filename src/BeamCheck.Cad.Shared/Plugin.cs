@@ -16,16 +16,44 @@ namespace BeamCheck.Cad
 {
     public sealed class Plugin : IExtensionApplication
     {
+        public const string LoadedMessage =
+            "\nBeamCheck загружен. Команды: BEAMLOAD — нагрузки от стоек на балку, PERIDUMP — данные объектов, BEAMLOADSETTINGS — настройки.\n";
+
         public void Initialize()
         {
+            Log("loaded " + typeof(Plugin).Assembly.Location + " into " + Environment.Version + " in " + System.Diagnostics.Process.GetCurrentProcess().ProcessName);
+
+            // At startup (autoload) there is no drawing yet: announce on the first idle moment instead.
+            CadApp.Idle += AnnounceOnce;
+        }
+
+        private static void AnnounceOnce(object sender, EventArgs e)
+        {
+            var doc = CadApp.DocumentManager.MdiActiveDocument;
+            if (doc == null)
+                return;
+            CadApp.Idle -= AnnounceOnce;
             try
             {
-                CadApp.DocumentManager.MdiActiveDocument?.Editor.WriteMessage(
-                    "\nBeamCheck загружен. Команды: BEAMLOAD — нагрузки от стоек на балку, PERIDUMP — данные объектов, BEAMLOADSETTINGS — настройки.\n");
+                doc.Editor.WriteMessage(LoadedMessage);
             }
             catch (System.Exception)
             {
-                // No document at startup is fine.
+            }
+        }
+
+        /// <summary>Appends a line to %APPDATA%\BeamCheck\BeamCheck.log (load diagnostics).</summary>
+        public static void Log(string line)
+        {
+            try
+            {
+                var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "BeamCheck");
+                Directory.CreateDirectory(dir);
+                File.AppendAllText(Path.Combine(dir, "BeamCheck.log"), DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "  " + line + Environment.NewLine);
+            }
+            catch (System.Exception)
+            {
+                // Logging must never break loading.
             }
         }
 

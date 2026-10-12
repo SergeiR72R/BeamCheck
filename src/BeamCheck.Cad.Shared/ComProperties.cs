@@ -46,7 +46,18 @@ namespace BeamCheck.Cad
                 AddPartProperties(sig, ent);
             if (IsCustomObject(ent))
                 AddComProperties(sig, ent);
+            else if (IsAecObject(ent))
+                AddComProperties(sig, ent, AecProperties);
         }
+
+        /// <summary>
+        /// PERI CAD 24 "BAUTEIL" parts (PERI_AEC_DB_BAUTEIL) are Autodesk.Aec geometry objects: no PERI class to
+        /// reflect on, but their COM interface carries ArtNr and Bezeichnung (e.g. 103915 / "SRU 397").
+        /// </summary>
+        private static readonly string[] AecProperties = { "ArtNr", "Bezeichnung", "width", "depth", "height" };
+
+        private static bool IsAecObject(Entity ent) =>
+            (ent.GetType().Namespace ?? "").StartsWith("Autodesk.Aec", StringComparison.Ordinal);
 
         public static void AddPartProperties(ElementSignature sig, object obj)
         {
@@ -77,7 +88,7 @@ namespace BeamCheck.Cad
             return Convert.ToString(v, CultureInfo.InvariantCulture);
         }
 
-        public static void AddComProperties(ElementSignature sig, Entity ent)
+        public static void AddComProperties(ElementSignature sig, Entity ent, string[] only = null)
         {
             object com;
             try
@@ -97,6 +108,8 @@ namespace BeamCheck.Cad
             {
                 foreach (PropertyDescriptor pd in TypeDescriptor.GetProperties(com))
                 {
+                    if (only != null && !only.Contains(pd.Name, StringComparer.OrdinalIgnoreCase))
+                        continue;
                     string value;
                     try
                     {

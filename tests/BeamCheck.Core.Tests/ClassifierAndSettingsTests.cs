@@ -168,5 +168,22 @@ namespace BeamCheck.Core.Tests
             Assert.Equal(Model.ElementKind.Beam, c.Kind);
             Assert.Equal(106, c.WeightKg);
         }
+
+        [Theory]
+        [InlineData("103915", "SRU 397", Model.ElementKind.Beam)]
+        [InlineData("124109", "Stahlbelag UDG 25x200", Model.ElementKind.Deck)]
+        [InlineData("101306", "UVR 100", Model.ElementKind.Standard)]
+        public void BAUTEIL_parts_are_classified_by_their_COM_article_and_designation(string art, string name, Model.ElementKind expected)
+        {
+            // PERI CAD 24 BAUTEIL objects: PERIDUMP showed COM:ArtNr / COM:Bezeichnung and no .NET part properties.
+            var sig = new Recognition.ElementSignature { EntityType = "Geo", DxfName = "PERI_AEC_DB_BAUTEIL", Layer = "00001E01_TEIL04+ construction 35" };
+            sig.Add("COM:ArtNr", art);
+            sig.Add("COM:Bezeichnung", name);
+            sig.Add("COM:width", "100");
+            var c = new Recognition.ElementClassifier(new Settings.BeamCheckSettings()).Classify(sig);
+            Assert.Equal(art, c.Article);
+            Assert.Equal(name, c.Description);
+            Assert.Equal(expected, c.Kind);
+        }
     }
 }

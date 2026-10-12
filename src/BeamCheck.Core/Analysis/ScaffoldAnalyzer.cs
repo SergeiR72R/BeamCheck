@@ -96,7 +96,7 @@ namespace BeamCheck.Core.Analysis
             _ledgers = ledgers;
             _standRuns = BuildRuns(standards);
             AddLinearSelfWeight(topo, active, sink, ledgers, ContributionType.LedgerSelfWeight);
-            AddLinearSelfWeight(topo, active, sink, all.Where(e => e.Kind == ElementKind.Diagonal || e.Kind == ElementKind.Accessory).ToList(), ContributionType.OtherSelfWeight);
+            AddLinearSelfWeight(topo, active, sink, all.Where(e => (e.Kind == ElementKind.Diagonal || e.Kind == ElementKind.Accessory) && !beamIds.Contains(e.Id)).ToList(), ContributionType.OtherSelfWeight);
             AddDecks(topo, active, sink, all.Where(e => e.Kind == ElementKind.Deck).ToList(), ledgers, input.ForcedIds);
             AddUpperBeamWeights(topo, sink);
 
@@ -168,17 +168,18 @@ namespace BeamCheck.Core.Analysis
             return offset <= beam.Width / 2 + _s.BeamPlanTolerance && position >= -_s.BeamPlanTolerance && position <= len + _s.BeamPlanTolerance;
         }
 
-        /// <summary>A ledger-sized profile (e.g. a DC or SRU section the name rules do not know) is a beam, not a ledger,
+        /// <summary>A ledger- or box-sized profile (e.g. an SRU section the name rules do not know) is a beam, not a ledger,
         /// when a selected column passes through it away from its ends: ledgers only meet standards at their ends.</summary>
         private IEnumerable<ScaffoldElement> FindBeamsPassingThroughColumns(List<ScaffoldElement> all, List<Column> columns, ScaffoldElement mainBeam, List<ScaffoldElement> known)
         {
             const double endClearance = 200;
             foreach (var e in all)
             {
-                if (e.Kind != ElementKind.Ledger || IsSameBeam(e, mainBeam) || known.Any(k => k.Id == e.Id))
+                // A box-shaped beam (wider than a ledger) is read as an accessory, so both kinds are candidates.
+                if ((e.Kind != ElementKind.Ledger && e.Kind != ElementKind.Accessory) || IsSameBeam(e, mainBeam) || known.Any(k => k.Id == e.Id))
                     continue;
                 double len = e.PlanLength;
-                if (len < 2 * endClearance)
+                if (len < 800 || e.Width > 400 || e.ZMax - e.ZMin > 600)
                     continue;
                 foreach (var c in columns)
                 {

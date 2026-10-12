@@ -32,7 +32,10 @@ namespace BeamCheck.Core.Tests
             [DataMember(Name = "s")] public List<double[]> Segments { get; set; }
         }
 
-        private BeamLoadSession Run(BeamCheckSettings settings, params string[] upperBeamHandles)
+        private BeamLoadSession Run(BeamCheckSettings settings, params string[] upperBeamHandles) =>
+            RunWith(settings, null, upperBeamHandles);
+
+        private BeamLoadSession RunWith(BeamCheckSettings settings, Func<Part, List<Segment>> replace, params string[] upperBeamHandles)
         {
             string path = Path.Combine(Path.GetDirectoryName(typeof(Test2Tests).Assembly.Location), "Fixtures", "peri24_test2_beam_DC9.json.gz");
             Fixture f;
@@ -44,7 +47,7 @@ namespace BeamCheck.Core.Tests
             ScaffoldElement beam = null;
             foreach (var p in f.Parts)
             {
-                var segs = p.Segments.Select(s => new Segment(new Vec3(s[0], s[1], s[2]), new Vec3(s[3], s[4], s[5]))).ToList();
+                var segs = replace?.Invoke(p) ?? p.Segments.Select(s => new Segment(new Vec3(s[0], s[1], s[2]), new Vec3(s[3], s[4], s[5]))).ToList();
                 var kind = p.Handle == f.Beam || upperBeamHandles.Contains(p.Handle) ? ElementKind.Beam : shape.Guess(segs);
                 if (kind == ElementKind.Unknown) continue;
                 var e = shape.Build(segs, kind);
@@ -107,6 +110,33 @@ namespace BeamCheck.Core.Tests
                 var e = shape.Build(segs, k);
                 _out.WriteLine($"{p.Handle} {k} start=({e.Start.X:0},{e.Start.Y:0}) end=({e.End.X:0},{e.End.Y:0}) Z {e.ZMin:0}..{e.ZMax:0} L={e.PlanLength:0} W={e.Width:0}");
             }
+        }
+
+        [Theory]
+        [InlineData(120)]
+        [InlineData(200)]
+        [InlineData(360)]
+        public void An_upper_beam_read_as_a_bounding_box_is_still_found(double height)
+        {
+            // In PERI CAD the BAUTEIL beam arrives as its bounding box: wider (162) and as tall as the section incl. fittings.
+            var settings = new BeamCheckSettings();
+            var shape = new ShapeAnalyzer(settings);
+            var beamBox = ShapeAnalyzer.BoxEdges(Corners(-805394, 320125 - 81, 106642 - height / 2, -801422, 320125 + 81, 106642 + height / 2));
+            var k = shape.Guess(beamBox);
+            _out.WriteLine($"box of {height}: classified as {k}");
+
+            var session = RunWith(settings, p => p.Handle == "3515" ? beamBox : null);
+            _out.WriteLine("upper beams: " + session.Topology.UpperBeams.Count);
+            Assert.Single(session.Topology.UpperBeams);
+            Assert.True(session.Result.Points.Single().AreaM2 > 3.0);
+        }
+
+        private static List<Vec3> Corners(double x0, double y0, double z0, double x1, double y1, double z1)
+        {
+            var c = new List<Vec3>();
+            for (int i = 0; i < 8; i++)
+                c.Add(new Vec3((i & 1) == 0 ? x0 : x1, (i & 2) == 0 ? y0 : y1, (i & 4) == 0 ? z0 : z1));
+            return c;
         }
     }
 }

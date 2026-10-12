@@ -56,7 +56,7 @@ namespace BeamCheck.Cad.UI
 
         private void BuildUi()
         {
-            Text = "BeamCheck — нагрузки от стоек на балку";
+            Text = "BeamCheck " + Plugin.BuildTag + " — нагрузки от стоек на балку";
             Font = new Font("Segoe UI", 9f);
             StartPosition = FormStartPosition.CenterParent;
             MinimizeBox = false;

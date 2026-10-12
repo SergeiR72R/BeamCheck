@@ -137,10 +137,33 @@ namespace BeamCheck.Cad
                 });
                 foreach (var kv in reader.TopLevelIds)
                     idMap[kv.Key] = kv.Value;
+                LogRecognition(session, beam, selected, candidates);
                 tr.Commit();
             }
 
             RunDialogLoop(doc, session, classifier, toMm, idMap);
+        }
+
+        /// <summary>Writes what was recognised around the picked standards (kind, article, name, extents) to BeamCheck.log.</summary>
+        private static void LogRecognition(BeamLoadSession session, ScaffoldElement beam, List<ScaffoldElement> selected, List<ScaffoldElement> candidates)
+        {
+            try
+            {
+                var inv = System.Globalization.CultureInfo.InvariantCulture;
+                string F(ScaffoldElement e) => string.Format(inv, "{0} {1} art={2} name={3} ({4:0},{5:0})→({6:0},{7:0}) Z {8:0}..{9:0} L={10:0} W={11:0}",
+                    e.Id, e.Kind, e.Article, e.Description, e.Start.X, e.Start.Y, e.End.X, e.End.Y, e.ZMin, e.ZMax, e.PlanLength, e.Width);
+                Plugin.Log("BEAMLOAD " + Plugin.BuildTag + ": beam " + F(beam));
+                foreach (var e in selected)
+                    Plugin.Log("  picked " + F(e));
+                foreach (var e in candidates.Where(c => selected.Any(s => BeamCheck.Core.Geometry.Vec3.DistanceXY(s.Start, (c.Start + c.End) / 2) <= 3000)).OrderBy(c => c.Kind.ToString()))
+                    Plugin.Log("  near " + F(e));
+                foreach (var u in session.Topology.UpperBeams)
+                    Plugin.Log(string.Format(inv, "  upper beam {0}: supports {1}, loaded {2}", u.Beam.Id, u.Supports.Count, u.Loaded.Count));
+            }
+            catch (System.Exception ex)
+            {
+                Plugin.Log("recognition log failed: " + ex.Message);
+            }
         }
 
         private static void RunDialogLoop(Document doc, BeamLoadSession session, ElementClassifier classifier, double toMm, Dictionary<string, ObjectId> idMap)

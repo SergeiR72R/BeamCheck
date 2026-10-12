@@ -17,7 +17,7 @@ namespace BeamCheck.Core.Settings
         }
 
         /// <summary>Bumped when defaults change in a way old settings files must not keep.</summary>
-        public const int CurrentVersion = 8;
+        public const int CurrentVersion = 9;
 
         [DataMember(Order = 0)] public int SettingsVersion { get; set; }
 
@@ -63,6 +63,15 @@ namespace BeamCheck.Core.Settings
         /// from the model), mm.
         /// </summary>
         [DataMember(Order = 31)] public double DeckHeightTolerance { get; set; }
+
+        /// <summary>A crossbar ledger whose end hangs on another ledger (UHA connector) passes its load to that ledger.</summary>
+        [DataMember(Order = 35)] public bool LedgerOnLedgerEnabled { get; set; }
+
+        /// <summary>Max difference of the top heights of a ledger and the ledger it hangs on, mm (the connector adds height).</summary>
+        [DataMember(Order = 36)] public double LedgerOnLedgerHeight { get; set; }
+
+        /// <summary>The hanging end must be at least this far from the ends of the supporting ledger (otherwise it is a stand corner), mm.</summary>
+        [DataMember(Order = 37)] public double LedgerOnLedgerEndClearance { get; set; }
 
         /// <summary>Decks that do not lie on a ledger within the tolerances are still counted, via the nearest ledger.</summary>
         [DataMember(Order = 32)] public bool DeckSnapEnabled { get; set; }
@@ -215,6 +224,9 @@ namespace BeamCheck.Core.Settings
             DeckBearingTolerance = 50;
             DeckHeightTolerance = 50;
             DeckSnapEnabled = true;
+            LedgerOnLedgerEnabled = true;
+            LedgerOnLedgerHeight = 250;
+            LedgerOnLedgerEndClearance = 150;
             DeckSnapDistance = 300;
             DeckSnapHeight = 300;
             DeckOverLedgerMin = -300;
@@ -240,7 +252,7 @@ namespace BeamCheck.Core.Settings
                 new RecognitionRule("Beam", @"(?i)(gitterträger|gittertraeger|multiträger|multitraeger|träger|traeger|girder|балк|двутавр|(?<![A-Z0-9])(SRU|RCS|ULS|ULA|ELM|VT ?20|GT ?24|HEB|HEA|IPE|UPE)(?![A-Z]))"),
                 new RecognitionRule("Deck", @"(?i)(deck|belag|plattform|platform|настил|(?<![A-Z0-9])(UD[IGPLA]|UAP)(?![A-Z]))"),
                 new RecognitionRule("Diagonal", @"(?i)(diagonal|диагонал|(?<![A-Z0-9])(UBL|UVD)(?![A-Z]))"),
-                new RecognitionRule("Accessory", @"(?i)(toe ?board|bordbrett|guard ?rail|gel[aä]nder|ограж|борт)"),
+                new RecognitionRule("Accessory", @"(?i)(toe ?board|bordbrett|guard ?rail|gel[aä]nder|ограж|борт|(?<![A-Z0-9])UHA(?![A-Z]))"),
                 new RecognitionRule("Ledger", @"(?i)(ledger|riegel|transom|ригел|леджер|(?<![A-Z0-9])(UH[A-Z]?|U[LX])(?![A-Z]))"),
                 new RecognitionRule("Standard", @"(?i)(standard|vertical|stiel|vertikal|стойк|(?<![A-Z0-9])UV[RH](?![A-Z]))"),
             };

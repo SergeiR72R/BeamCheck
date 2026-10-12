@@ -40,6 +40,7 @@ namespace BeamCheck.Core.Analysis
     public sealed class ScaffoldAnalyzer
     {
         private readonly BeamCheckSettings _s;
+        private List<ScaffoldElement> _ledgers = new List<ScaffoldElement>();
 
         public ScaffoldAnalyzer(BeamCheckSettings settings)
         {
@@ -86,6 +87,7 @@ namespace BeamCheck.Core.Analysis
             }
 
             var ledgers = all.Where(e => e.Kind == ElementKind.Ledger).ToList();
+            _ledgers = ledgers;
             AddLinearSelfWeight(topo, active, sink, ledgers, ContributionType.LedgerSelfWeight);
             AddLinearSelfWeight(topo, active, sink, all.Where(e => e.Kind == ElementKind.Diagonal || e.Kind == ElementKind.Accessory).ToList(), ContributionType.OtherSelfWeight);
             AddDecks(topo, active, sink, all.Where(e => e.Kind == ElementKind.Deck).ToList(), ledgers, input.ForcedIds);
@@ -506,13 +508,79 @@ namespace BeamCheck.Core.Analysis
             {
                 foreach (var end in new[] { e.Start, e.End })
                 {
-                    var col = FindColumnAt(columns, end);
-                    if (col == null)
-                        continue;
-                    sink.Add(new Contribution { Column = col, Source = e, Type = type, Share = 0.5 });
-                    topo.UsedElementIds.Add(e.Id);
+                    foreach (var r in ResolveNode(topo, columns, e, end, 0.5, 0))
+                    {
+                        sink.Add(new Contribution { Column = r.Column, Source = e, Type = type, Share = r.Share });
+                        topo.UsedElementIds.Add(e.Id);
+                    }
                 }
             }
+        }
+
+        private struct NodeShare
+        {
+            public Column Column;
+            public double Share;
+        }
+
+        /// <summary>
+        /// Where the load at a ledger end goes. A ledger end normally sits on a standard. A crossbar ledger can
+        /// also hang on another ledger through a UHA connector (node in the middle of the supporting ledger):
+        /// then its load goes to that ledger by the lever rule and on to the standards at ITS ends.
+        /// </summary>
+        private IEnumerable<NodeShare> ResolveNode(Topology topo, List<Column> columns, ScaffoldElement from, Vec3 node, double share, int depth)
+        {
+            var col = FindColumnAt(columns, node);
+            if (col != null)
+            {
+                yield return new NodeShare { Column = col, Share = share };
+                yield break;
+            }
+
+            if (depth >= 3 || !_s.LedgerOnLedgerEnabled)
+                yield break;
+            var support = FindSupportingLedger(from, node, out double t);
+            if (support == null)
+                yield break;
+
+            topo.UsedElementIds.Add(support.Id);
+            foreach (var r in ResolveNode(topo, columns, support, support.Start, share * (1 - t), depth + 1))
+                yield return r;
+            foreach (var r in ResolveNode(topo, columns, support, support.End, share * t, depth + 1))
+                yield return r;
+        }
+
+        /// <summary>
+        /// The ledger on which the end of <paramref name="from"/> rests: crossing it (not running along it), at about
+        /// the same height, the end within the node tolerance of its axis and clear of its own ends.
+        /// </summary>
+        private ScaffoldElement FindSupportingLedger(ScaffoldElement from, Vec3 node, out double t)
+        {
+            ScaffoldElement best = null;
+            double bestDist = double.MaxValue;
+            t = 0;
+            var fd = (from.End - from.Start).PlanDirection();
+            foreach (var l in _ledgers)
+            {
+                if (ReferenceEquals(l, from) || l.Id == from.Id || l.PlanLength < 1)
+                    continue;
+                var ld = (l.End - l.Start).PlanDirection();
+                if (Math.Abs(ld.DotXY(fd)) > 0.5)
+                    continue;
+                if (Math.Abs(from.ZMax - l.ZMax) > _s.LedgerOnLedgerHeight)
+                    continue;
+                double tt = PlanGeometry.ProjectXY(l.Start, l.End, node, out double dist);
+                if (dist > _s.NodeTolerance || dist >= bestDist)
+                    continue;
+                double along = tt * l.PlanLength;
+                if (along < _s.LedgerOnLedgerEndClearance || along > l.PlanLength - _s.LedgerOnLedgerEndClearance)
+                    continue;
+                best = l;
+                bestDist = dist;
+                t = tt;
+            }
+
+            return best;
         }
 
         private void AddDecks(Topology topo, List<Column> columns, List<Contribution> sink, List<ScaffoldElement> decks, List<ScaffoldElement> ledgers, ISet<string> forced)
@@ -627,11 +695,11 @@ namespace BeamCheck.Core.Analysis
         {
             if (share <= 1e-9)
                 return;
-            var col = FindColumnAt(columns, node);
-            if (col == null)
-                return;
-            target.Add(new Contribution { Column = col, Source = deck, Via = ledger, Type = ContributionType.Deck, Share = share });
-            topo.UsedElementIds.Add(ledger.Id);
+            foreach (var r in ResolveNode(topo, columns, ledger, node, share, 0))
+            {
+                target.Add(new Contribution { Column = r.Column, Source = deck, Via = ledger, Type = ContributionType.Deck, Share = r.Share });
+                topo.UsedElementIds.Add(ledger.Id);
+            }
         }
 
         /// <summary>

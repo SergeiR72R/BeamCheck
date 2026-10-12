@@ -1,5 +1,5 @@
 {
-  "SettingsVersion": 8,
+  "SettingsVersion": 9,
   "LoadClasses": [
     {
       "Class": 1,
@@ -49,6 +49,9 @@
   "DeckSnapEnabled": true,
   "DeckSnapDistance": 300,
   "DeckSnapHeight": 300,
+  "LedgerOnLedgerEnabled": true,
+  "LedgerOnLedgerHeight": 250,
+  "LedgerOnLedgerEndClearance": 150,
   "StandardKgPerM": 5.5,
   "LedgerKgPerM": 3.5,
   "DeckKgPerM2": 22,
@@ -71,7 +74,7 @@
     },
     {
       "Kind": "Accessory",
-      "Pattern": "(?i)(toe ?board|bordbrett|guard ?rail|gel[aä]nder|ограж|борт)"
+      "Pattern": "(?i)(toe ?board|bordbrett|guard ?rail|gel[aä]nder|ограж|борт|(?<![A-Z0-9])UHA(?![A-Z]))"
     },
     {
       "Kind": "Ledger",

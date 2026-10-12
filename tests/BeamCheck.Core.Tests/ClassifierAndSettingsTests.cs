@@ -185,5 +185,19 @@ namespace BeamCheck.Core.Tests
             Assert.Equal(name, c.Description);
             Assert.Equal(expected, c.Kind);
         }
+
+        [Theory]
+        [InlineData("Horizontalriegel UHV-2 250", Model.ElementKind.Ledger)]
+        [InlineData("Horizontalriegel UH-2 100", Model.ElementKind.Ledger)]
+        [InlineData("Vertikalstiel UVR-2 100", Model.ElementKind.Standard)]
+        [InlineData("Basisstiel UVB 50", Model.ElementKind.Standard)]
+        [InlineData("Kopfstiel UVH-2 100", Model.ElementKind.Standard)]
+        [InlineData("Stahlbelag UDG-2 25 x 200", Model.ElementKind.Deck)]
+        public void UP_Flex_parts_are_recognised_by_designation(string name, Model.ElementKind expected)
+        {
+            var sig = new Recognition.ElementSignature { EntityType = "Geo", DxfName = "PERI_AEC_DB_BAUTEIL", Layer = "00001E01_TEIL04+ construction 35" };
+            sig.Add("COM:Bezeichnung", name);
+            Assert.Equal(expected, new Recognition.ElementClassifier(new Settings.BeamCheckSettings()).Classify(sig).Kind);
+        }
     }
 }

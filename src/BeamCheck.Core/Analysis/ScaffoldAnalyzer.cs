@@ -41,6 +41,7 @@ namespace BeamCheck.Core.Analysis
     {
         private readonly BeamCheckSettings _s;
         private List<ScaffoldElement> _ledgers = new List<ScaffoldElement>();
+        private List<Column> _standRuns = new List<Column>();
 
         public ScaffoldAnalyzer(BeamCheckSettings settings)
         {
@@ -88,6 +89,7 @@ namespace BeamCheck.Core.Analysis
 
             var ledgers = all.Where(e => e.Kind == ElementKind.Ledger).ToList();
             _ledgers = ledgers;
+            _standRuns = BuildRuns(standards);
             AddLinearSelfWeight(topo, active, sink, ledgers, ContributionType.LedgerSelfWeight);
             AddLinearSelfWeight(topo, active, sink, all.Where(e => e.Kind == ElementKind.Diagonal || e.Kind == ElementKind.Accessory).ToList(), ContributionType.OtherSelfWeight);
             AddDecks(topo, active, sink, all.Where(e => e.Kind == ElementKind.Deck).ToList(), ledgers, input.ForcedIds);
@@ -528,33 +530,49 @@ namespace BeamCheck.Core.Analysis
         /// also hang on another ledger through a UHA connector (node in the middle of the supporting ledger):
         /// then its load goes to that ledger by the lever rule and on to the standards at ITS ends.
         /// </summary>
-        private IEnumerable<NodeShare> ResolveNode(Topology topo, List<Column> columns, ScaffoldElement from, Vec3 node, double share, int depth)
+        private List<NodeShare> ResolveNode(Topology topo, List<Column> columns, ScaffoldElement from, Vec3 node, double share, int depth)
         {
+            var result = new List<NodeShare>();
             var col = FindColumnAt(columns, node);
             if (col != null)
             {
-                yield return new NodeShare { Column = col, Share = share };
-                yield break;
+                result.Add(new NodeShare { Column = col, Share = share });
+                return result;
             }
 
-            if (depth >= 3 || !_s.LedgerOnLedgerEnabled)
-                yield break;
-            var support = FindSupportingLedger(from, node, out double t);
+            // An end that stands on ANY standard is a stand node, never a connector on a passing ledger.
+            if (depth >= _s.LedgerOnLedgerDepth || !_s.LedgerOnLedgerEnabled || IsOnAnyStandard(node))
+                return result;
+            var support = FindSupportingLedger(columns, from, node, out double t);
             if (support == null)
-                yield break;
+                return result;
 
-            topo.UsedElementIds.Add(support.Id);
-            foreach (var r in ResolveNode(topo, columns, support, support.Start, share * (1 - t), depth + 1))
-                yield return r;
-            foreach (var r in ResolveNode(topo, columns, support, support.End, share * t, depth + 1))
-                yield return r;
+            result.AddRange(ResolveNode(topo, columns, support, support.Start, share * (1 - t), depth + 1));
+            result.AddRange(ResolveNode(topo, columns, support, support.End, share * t, depth + 1));
+            // The supporting ledger counts only if the load really reaches the selected standards through it.
+            if (result.Count > 0)
+                topo.UsedElementIds.Add(support.Id);
+            return result;
+        }
+
+        private bool IsOnAnyStandard(Vec3 p)
+        {
+            foreach (var run in _standRuns)
+            {
+                if (Vec3.DistanceXY(run.Axis, p) <= _s.NodeTolerance &&
+                    p.Z >= run.ZBottom - _s.NodeTolerance && p.Z <= run.ZTop + _s.NodeTolerance)
+                    return true;
+            }
+
+            return false;
         }
 
         /// <summary>
         /// The ledger on which the end of <paramref name="from"/> rests: crossing it (not running along it), at about
-        /// the same height, the end within the node tolerance of its axis and clear of its own ends.
+        /// the same height, the end within the node tolerance of its axis, clear of its own ends, and the supporting ledger itself
+        /// attached to a selected standard (the chain never wanders off through the scaffold).
         /// </summary>
-        private ScaffoldElement FindSupportingLedger(ScaffoldElement from, Vec3 node, out double t)
+        private ScaffoldElement FindSupportingLedger(List<Column> columns, ScaffoldElement from, Vec3 node, out double t)
         {
             ScaffoldElement best = null;
             double bestDist = double.MaxValue;
@@ -568,6 +586,9 @@ namespace BeamCheck.Core.Analysis
                 if (Math.Abs(ld.DotXY(fd)) > 0.5)
                     continue;
                 if (Math.Abs(from.ZMax - l.ZMax) > _s.LedgerOnLedgerHeight)
+                    continue;
+                // Only a ledger attached to one of the selected standards can carry a hanging ledger for them.
+                if (FindColumnAt(columns, l.Start) == null && FindColumnAt(columns, l.End) == null)
                     continue;
                 double tt = PlanGeometry.ProjectXY(l.Start, l.End, node, out double dist);
                 if (dist > _s.NodeTolerance || dist >= bestDist)

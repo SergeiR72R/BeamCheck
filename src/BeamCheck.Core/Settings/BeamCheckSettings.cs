@@ -17,7 +17,7 @@ namespace BeamCheck.Core.Settings
         }
 
         /// <summary>Bumped when defaults change in a way old settings files must not keep.</summary>
-        public const int CurrentVersion = 9;
+        public const int CurrentVersion = 11;
 
         [DataMember(Order = 0)] public int SettingsVersion { get; set; }
 
@@ -66,6 +66,9 @@ namespace BeamCheck.Core.Settings
 
         /// <summary>A crossbar ledger whose end hangs on another ledger (UHA connector) passes its load to that ledger.</summary>
         [DataMember(Order = 35)] public bool LedgerOnLedgerEnabled { get; set; }
+
+        /// <summary>How many ledgers may hang on one another in a chain.</summary>
+        [DataMember(Order = 38)] public int LedgerOnLedgerDepth { get; set; }
 
         /// <summary>Max difference of the top heights of a ledger and the ledger it hangs on, mm (the connector adds height).</summary>
         [DataMember(Order = 36)] public double LedgerOnLedgerHeight { get; set; }
@@ -225,6 +228,7 @@ namespace BeamCheck.Core.Settings
             DeckHeightTolerance = 50;
             DeckSnapEnabled = true;
             LedgerOnLedgerEnabled = true;
+            LedgerOnLedgerDepth = 1;
             LedgerOnLedgerHeight = 250;
             LedgerOnLedgerEndClearance = 150;
             DeckSnapDistance = 300;

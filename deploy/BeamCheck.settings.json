@@ -1,5 +1,5 @@
 {
-  "SettingsVersion": 9,
+  "SettingsVersion": 11,
   "LoadClasses": [
     {
       "Class": 1,
@@ -52,6 +52,7 @@
   "LedgerOnLedgerEnabled": true,
   "LedgerOnLedgerHeight": 250,
   "LedgerOnLedgerEndClearance": 150,
+  "LedgerOnLedgerDepth": 1,
   "StandardKgPerM": 5.5,
   "LedgerKgPerM": 3.5,
   "DeckKgPerM2": 22,

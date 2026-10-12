@@ -106,6 +106,47 @@ namespace BeamCheck.Core.Tests
         }
 
         [Fact]
+        public void A_ledger_end_standing_on_a_foreign_standard_is_not_a_connector()
+        {
+            var (s, _, _) = Build();
+            // A standard (not selected) stands right under the hanging end at (1803, 1267): it is a stand node.
+            s.Input.Candidates.Add(Std(1803, 1267));
+            s.Reanalyze();
+
+            Assert.Equal(0, s.Result.Points.Single().AreaM2, 9);
+        }
+
+        [Fact]
+        public void Ledgers_hanging_on_ledgers_far_from_our_standard_are_neither_counted_nor_highlighted()
+        {
+            var (s, _, _) = Build();
+            var far = new List<ScaffoldElement>
+            {
+                Ledger(new Vec3(5000, 10000, 133868), new Vec3(7000, 10000, 133868), 133718),
+                Ledger(new Vec3(6000, 10042, 133868), new Vec3(6000, 12000, 133868)),
+                Ledger(new Vec3(6000, 12000, 133868), new Vec3(8000, 12000, 133868)),
+                Ledger(new Vec3(7000, 12042, 133868), new Vec3(7000, 14000, 133868)),
+            };
+            foreach (var l in far) s.Input.Candidates.Add(l);
+            s.Reanalyze();
+
+            Assert.All(far, l => Assert.DoesNotContain(l.Id, s.Topology.UsedElementIds));
+            // The result for our standard is unchanged.
+            Assert.Equal(DeckArea / 8, s.Result.Points.Single().AreaM2, 6);
+        }
+
+        [Fact]
+        public void Only_the_ledgers_and_decks_that_really_carry_load_to_our_standard_are_marked()
+        {
+            var (s, _, decks) = Build();
+
+            var usedLedgers = s.Input.Candidates.Where(e => e.Kind == ElementKind.Ledger && s.Topology.UsedElementIds.Contains(e.Id)).ToList();
+            // The UHV (ours), the crossbar hanging on it. The crossbar at 2803 touches only foreign standards.
+            Assert.Equal(2, usedLedgers.Count);
+            Assert.All(decks, d => Assert.Contains(d.Id, s.Topology.UsedElementIds));
+        }
+
+        [Fact]
         public void A_ledger_end_close_to_the_end_of_another_ledger_is_a_corner_not_a_connector()
         {
             var (s, _, decks) = Build();

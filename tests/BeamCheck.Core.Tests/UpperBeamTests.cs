@@ -136,6 +136,34 @@ namespace BeamCheck.Core.Tests
         }
 
         [Fact]
+        public void Two_stacks_40_mm_apart_under_a_beam_are_one_support_and_never_blow_the_lever_rule_up()
+        {
+            // A second stack 40 mm beside the first (outside the column tolerance) must not become a second support there:
+            // the overhang stand at -2000 would take 1 + 2000/40 = 51 times its weight.
+            var ub = UpperBeam(-3000, 4000, kg: 0);
+            var (input, _) = Setup(ub, Std(40, 0, 0, 2000), Std(40, 0, 2000, 4000), Std(-2000, 0, 4200, 6200, kg: 40));
+            var s = new BeamLoadSession(Settings(), input);
+
+            var link = Assert.Single(s.Topology.UpperBeams);
+            Assert.Equal(2, link.Supports.Count); // X = 0 (with 40) and X = 4000
+            Assert.All(s.Result.Points, p => Assert.True(p.Gk < LoadCalculator.KgToKn(500), "Gk " + p.Gk));
+            Assert.Equal(LoadCalculator.KgToKn(40 * 1.5), s.Result.Points[0].TransferGk, 6);
+        }
+
+        [Fact]
+        public void A_ledger_PERI_names_is_not_taken_for_a_beam_even_when_a_column_passes_through_it()
+        {
+            var ledger = new ScaffoldElement
+            {
+                Id = "L", Kind = ElementKind.Ledger, Article = "117032", Description = "UH 175 +",
+                Start = new Vec3(-800, 0, 4100), End = new Vec3(900, 0, 4100), Width = 30, ZMin = 4040, ZMax = 4160, WeightKg = 5,
+            };
+            var (input, _) = Setup(ledger);
+            var s = new BeamLoadSession(Settings(), input);
+            Assert.Empty(s.Topology.UpperBeams);
+        }
+
+        [Fact]
         public void An_upper_beam_recognised_by_its_name_is_found_without_picking_it_by_hand()
         {
             var shape = new Recognition.ShapeAnalyzer(new BeamCheckSettings());

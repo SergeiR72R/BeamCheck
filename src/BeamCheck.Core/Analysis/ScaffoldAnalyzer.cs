@@ -177,7 +177,8 @@ namespace BeamCheck.Core.Analysis
             foreach (var e in all)
             {
                 // A box-shaped beam (wider than a ledger) is read as an accessory, so both kinds are candidates.
-                if ((e.Kind != ElementKind.Ledger && e.Kind != ElementKind.Accessory) || IsSameBeam(e, mainBeam) || known.Any(k => k.Id == e.Id))
+                // Only parts whose article is unknown: a ledger or accessory that PERI names (UH 175 +, UBK…) is what its name says.
+                if ((e.Kind != ElementKind.Ledger && e.Kind != ElementKind.Accessory) || !string.IsNullOrEmpty(e.Article) || IsSameBeam(e, mainBeam) || known.Any(k => k.Id == e.Id))
                     continue;
                 double len = e.PlanLength;
                 if (len < 800 || e.Width > 400 || e.ZMax - e.ZMin > 600)
@@ -239,6 +240,7 @@ namespace BeamCheck.Core.Analysis
                     done.Add(u.Id);
                     progress = true;
                     link.Supports.Sort((a, b) => a.Position.CompareTo(b.Position));
+                    MergeCoincidentSupports(link);
 
                     // Stands on top of the upper beam.
                     foreach (var run in runs)
@@ -272,6 +274,32 @@ namespace BeamCheck.Core.Analysis
                 if (!progress)
                     break;
             }
+        }
+
+        /// <summary>
+        /// Several runs of one stack (head, extension, spindle…) all reach the beam: they are one support. Two supports a few
+        /// millimetres apart would make the lever rule divide by almost zero.
+        /// </summary>
+        private static void MergeCoincidentSupports(BeamLink link)
+        {
+            const double sameSupport = 100;
+            var merged = new List<BeamSupport>();
+            foreach (var sup in link.Supports)
+            {
+                var last = merged.Count > 0 ? merged[merged.Count - 1] : null;
+                if (last != null && sup.Position - last.Position < sameSupport)
+                {
+                    if (last.Column == null)
+                        last.Column = sup.Column;
+                }
+                else
+                {
+                    merged.Add(sup);
+                }
+            }
+
+            link.Supports.Clear();
+            link.Supports.AddRange(merged);
         }
 
         private void AddUpperBeamWeights(Topology topo, List<Contribution> sink)

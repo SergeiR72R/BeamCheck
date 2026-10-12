@@ -49,9 +49,9 @@ namespace BeamCheck.Core.Tests
             };
         }
 
-        private BeamLoadSession Run(BeamCheckSettings settings)
+        private BeamLoadSession Run(BeamCheckSettings settings, string fixture = "log_beam_73CB0.json.gz")
         {
-            string path = Path.Combine(Path.GetDirectoryName(typeof(BigLogTests).Assembly.Location), "Fixtures", "log_beam_73CB0.json.gz");
+            string path = Path.Combine(Path.GetDirectoryName(typeof(BigLogTests).Assembly.Location), "Fixtures", fixture);
             List<Rec> recs;
             using (var gz = new GZipStream(File.OpenRead(path), CompressionMode.Decompress))
                 recs = (List<Rec>)new DataContractJsonSerializer(typeof(List<Rec>)).ReadObject(gz);
@@ -61,10 +61,12 @@ namespace BeamCheck.Core.Tests
             return new BeamLoadSession(settings, new AnalysisInput { Beam = beam, SelectedStandards = picked, Candidates = cand });
         }
 
-        [Fact]
-        public void Probe()
+        [Theory]
+        [InlineData("log_beam_73CB0.json.gz")]
+        [InlineData("log_beam_7432C.json.gz")]
+        public void Probe(string fixture)
         {
-            var s = Run(new BeamCheckSettings());
+            var s = Run(new BeamCheckSettings(), fixture);
             _out.WriteLine($"columns {s.Topology.Columns.Count} levels {s.Topology.Levels.Count} upper {s.Topology.UpperBeams.Count} used {s.Topology.UsedElementIds.Count}");
             foreach (var l in s.Topology.Levels)
                 _out.WriteLine($"level {l.Index} Z={l.Z:0} area {s.LevelArea(l):0.000}");

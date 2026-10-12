@@ -156,5 +156,17 @@ namespace BeamCheck.Core.Tests
             sig.Add("PART:Name", name);
             Assert.Equal(expected, new Recognition.ElementClassifier(new Settings.BeamCheckSettings()).Classify(sig).Kind);
         }
+
+        [Fact]
+        public void A_beam_article_from_the_weights_table_makes_the_part_a_beam_and_gives_its_weight()
+        {
+            var settings = new Settings.BeamCheckSettings();
+            settings.Catalog.AddRange(Settings.CatalogCsv.Parse("Article;WeightKg;Name;Kind\n103915;106;Stahlriegel Universal SRU U120, L = 3,97 m;Beam\n"));
+            var sig = new Recognition.ElementSignature { EntityType = "Part", Layer = "0" };
+            sig.Add("PART:ArtNr", "103915");
+            var c = new Recognition.ElementClassifier(settings).Classify(sig);
+            Assert.Equal(Model.ElementKind.Beam, c.Kind);
+            Assert.Equal(106, c.WeightKg);
+        }
     }
 }

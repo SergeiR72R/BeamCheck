@@ -8,7 +8,7 @@ using BeamCheck.Core.Recognition;
 namespace BeamCheck.Core.Settings
 {
     /// <summary>
-    /// Weight table "article;weight kg;name" (BeamCheck.weights.csv). Separator ';', ',' or tab,
+    /// Weight table "article;weight kg;name[;kind]" (BeamCheck.weights.csv). Separator ';', ',' or tab,
     /// decimal point or comma, optional header row, '#' comments. Rows without a positive weight
     /// are ignored, so the template can be filled in gradually.
     /// </summary>
@@ -37,6 +37,7 @@ namespace BeamCheck.Core.Settings
                     Article = cols[0],
                     WeightKg = kg,
                     Description = cols.Length > 2 && cols[2].Length > 0 ? cols[2] : null,
+                    Kind = cols.Length > 3 && cols[3].Length > 0 ? cols[3] : null,
                 });
             }
 

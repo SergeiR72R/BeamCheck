@@ -1,38 +1,101 @@
-﻿# BeamCheck: вес деталей по артикулам (кг). Источник: Stückliste PERI CAD 24 (partlists_20261009).
-# Колонки: Article;WeightKg;Name. Десятичный разделитель . или ,. Строки без веса игнорируются
-# и считаются по запасным значениям из настроек (в диалоге выводится предупреждение).
-Article;WeightKg;Name
-102859;3.08;Vertikalstiel UVR 50
-101306;5.38;Vertikalstiel UVR 100
-102860;7.69;Vertikalstiel UVR 150
-100009;10;Vertikalstiel UVR 200
-100012;14.7;Vertikalstiel UVR 300
-101309;2.51;Kopfstiel UVH 50
-100000;4.61;Kopfstiel UVH 100
-117195;7.6;Kopfstiel UVH 125
-100003;6.92;Kopfstiel UVH 150
-100005;9.24;Kopfstiel UVH 200
-100007;11.5;Kopfstiel UVH 250
-114681;10.9;Horizontalriegel UHV 150 Plus
-114687;14.7;Horizontalriegel UHV 200 Plus
-114691;17.9;Horizontalriegel UHV 250 Plus
-114695;21.6;Horizontalriegel UHV 300 Plus
-114613;1.42;Horizontalriegel UH 25 Plus
-114595;2.07;Horizontalriegel UH 50 Plus
-114629;2.73;Horizontalriegel UH 75 Plus
-114632;4.39;Horizontalriegel UH 100 Plus
-114638;5.34;Horizontalriegel UH 125 Plus
-114641;4.72;Horizontalriegel UH 150 Plus
-117032;5.38;Horizontalriegel UH 175 Plus
-114645;6.04;Horizontalriegel UH 200 Plus
-116356;6.7;Horizontalriegel UH 225 Plus
-114648;7.36;Horizontalriegel UH 250 Plus
-114651;8.68;Horizontalriegel UH 300 Plus
-124124;3.88;Stahlbelag UDG 25 x 50
-124121;5.26;Stahlbelag UDG 25 x 75
-124118;6.63;Stahlbelag UDG 25 x 100
-124115;8.01;Stahlbelag UDG 25 x 125
-124112;9.41;Stahlbelag UDG 25 x 150
-124109;12.2;Stahlbelag UDG 25 x 200
-123771;14.9;Stahlbelag UDG 25 x 250
-124915;17.7;Stahlbelag UDG 25 x 300
+﻿# BeamCheck: вес деталей по артикулам (кг). Источник: Stückliste PERI CAD 24 (partlists_20261009).
+
+# Колонки: Article;WeightKg;Name[;Kind]. Kind (необязательно: Beam, Ledger, Deck, Standard, Diagonal, Accessory) задаёт тип детали по артикулу. Десятичный разделитель . или ,. Строки без веса игнорируются
+
+# и считаются по запасным значениям из настроек (в диалоге выводится предупреждение).
+
+Article;WeightKg;Name
+
+102859;3.08;Vertikalstiel UVR 50
+
+101306;5.38;Vertikalstiel UVR 100
+
+102860;7.69;Vertikalstiel UVR 150
+
+100009;10;Vertikalstiel UVR 200
+
+100012;14.7;Vertikalstiel UVR 300
+
+101309;2.51;Kopfstiel UVH 50
+
+100000;4.61;Kopfstiel UVH 100
+
+117195;7.6;Kopfstiel UVH 125
+
+100003;6.92;Kopfstiel UVH 150
+
+100005;9.24;Kopfstiel UVH 200
+
+100007;11.5;Kopfstiel UVH 250
+
+114681;10.9;Horizontalriegel UHV 150 Plus
+
+114687;14.7;Horizontalriegel UHV 200 Plus
+
+114691;17.9;Horizontalriegel UHV 250 Plus
+
+114695;21.6;Horizontalriegel UHV 300 Plus
+
+114613;1.42;Horizontalriegel UH 25 Plus
+
+114595;2.07;Horizontalriegel UH 50 Plus
+
+114629;2.73;Horizontalriegel UH 75 Plus
+
+114632;4.39;Horizontalriegel UH 100 Plus
+
+114638;5.34;Horizontalriegel UH 125 Plus
+
+114641;4.72;Horizontalriegel UH 150 Plus
+
+117032;5.38;Horizontalriegel UH 175 Plus
+
+114645;6.04;Horizontalriegel UH 200 Plus
+
+116356;6.7;Horizontalriegel UH 225 Plus
+
+114648;7.36;Horizontalriegel UH 250 Plus
+
+114651;8.68;Horizontalriegel UH 300 Plus
+
+124124;3.88;Stahlbelag UDG 25 x 50
+
+124121;5.26;Stahlbelag UDG 25 x 75
+
+124118;6.63;Stahlbelag UDG 25 x 100
+
+124115;8.01;Stahlbelag UDG 25 x 125
+
+124112;9.41;Stahlbelag UDG 25 x 150
+
+124109;12.2;Stahlbelag UDG 25 x 200
+
+123771;14.9;Stahlbelag UDG 25 x 250
+
+124915;17.7;Stahlbelag UDG 25 x 300
+103868;18.1;Stahlriegel Universal SRU U120, L = 0,72 m;Beam
+103871;24.2;Stahlriegel Universal SRU U120, L = 0,97 m;Beam
+103874;30.9;Stahlriegel Universal SRU U120, L = 1,22 m;Beam
+103877;38.1;Stahlriegel Universal SRU U120, L = 1,47 m;Beam
+103886;44.7;Stahlriegel Universal SRU U120, L = 1,72 m;Beam
+103889;52;Stahlriegel Universal SRU U120, L = 1,97 m;Beam
+103898;58.6;Stahlriegel Universal SRU U120, L = 2,22 m;Beam
+103892;65.6;Stahlriegel Universal SRU U120, L = 2,47 m;Beam
+103929;72;Stahlriegel Universal SRU U120, L = 2,72 m;Beam
+103903;81;Stahlriegel Universal SRU U120, L = 2,97 m;Beam
+103906;92.6;Stahlriegel Universal SRU U120, L = 3,47 m;Beam
+103915;106;Stahlriegel Universal SRU U120, L = 3,97 m;Beam
+103918;119;Stahlriegel Universal SRU U120, L = 4,47 m;Beam
+103922;135;Stahlriegel Universal SRU U120, L = 4,97 m;Beam
+103925;146;Stahlriegel Universal SRU U120, L = 5,47 m;Beam
+103928;159;Stahlriegel Universal SRU U120, L = 5,97 m;Beam
+103943;157;Stahlriegel Universal SRU U140, L = 4,97 m;Beam
+114166;78.2;Kletterschiene RCS 148;Beam
+135990;105;Kletterschiene RCS 198;Beam
+109469;130;Kletterschiene RCS 248;Beam
+112102;156;Kletterschiene RCS 298;Beam
+109470;182;Kletterschiene RCS 348;Beam
+112141;209;Kletterschiene RCS 398;Beam
+109471;262;Kletterschiene RCS 498;Beam
+109472;393;Kletterschiene RCS 748;Beam
+109610;524;Kletterschiene RCS 998;Beam

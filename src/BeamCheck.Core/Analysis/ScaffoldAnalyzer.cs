@@ -39,6 +39,9 @@ namespace BeamCheck.Core.Analysis
     /// </summary>
     public sealed class ScaffoldAnalyzer
     {
+        /// <summary>How far a head or foot plate may reach below the underside of a beam without being a support under it, mm.</summary>
+        private const double FootAllowance = 200;
+
         private readonly BeamCheckSettings _s;
         private List<ScaffoldElement> _ledgers = new List<ScaffoldElement>();
         private List<Column> _standRuns = new List<Column>();
@@ -75,6 +78,7 @@ namespace BeamCheck.Core.Analysis
             // upper beams that rest on them. Their load reaches the beam through the upper beams.
             var active = new List<Column>(topo.Columns);
             var upper = all.Where(e => e.Kind == ElementKind.Beam && !IsSameBeam(e, input.Beam)).ToList();
+            upper.AddRange(FindBeamsPassingThroughColumns(all, topo.Columns, input.Beam, upper));
             FindUpperBeams(topo, upper, standards, active);
 
             var sink = new List<Contribution>();
@@ -87,7 +91,8 @@ namespace BeamCheck.Core.Analysis
                 }
             }
 
-            var ledgers = all.Where(e => e.Kind == ElementKind.Ledger).ToList();
+            var beamIds = new HashSet<string>(topo.UpperBeams.Select(l => l.Beam.Id));
+            var ledgers = all.Where(e => e.Kind == ElementKind.Ledger && !beamIds.Contains(e.Id)).ToList();
             _ledgers = ledgers;
             _standRuns = BuildRuns(standards);
             AddLinearSelfWeight(topo, active, sink, ledgers, ContributionType.LedgerSelfWeight);
@@ -163,6 +168,33 @@ namespace BeamCheck.Core.Analysis
             return offset <= beam.Width / 2 + _s.BeamPlanTolerance && position >= -_s.BeamPlanTolerance && position <= len + _s.BeamPlanTolerance;
         }
 
+        /// <summary>A ledger-sized profile (e.g. a DC or SRU section the name rules do not know) is a beam, not a ledger,
+        /// when a selected column passes through it away from its ends: ledgers only meet standards at their ends.</summary>
+        private IEnumerable<ScaffoldElement> FindBeamsPassingThroughColumns(List<ScaffoldElement> all, List<Column> columns, ScaffoldElement mainBeam, List<ScaffoldElement> known)
+        {
+            const double endClearance = 200;
+            foreach (var e in all)
+            {
+                if (e.Kind != ElementKind.Ledger || IsSameBeam(e, mainBeam) || known.Any(k => k.Id == e.Id))
+                    continue;
+                double len = e.PlanLength;
+                if (len < 2 * endClearance)
+                    continue;
+                foreach (var c in columns)
+                {
+                    double t = PlanGeometry.ProjectXY(e.Start, e.End, c.Axis, out double off);
+                    double pos = t * len;
+                    if (off > Math.Max(e.Width / 2, 50) + _s.BeamPlanTolerance || pos < endClearance || pos > len - endClearance)
+                        continue;
+                    if (c.ZBottom < e.ZMin - endClearance && e.ZMin <= c.ZTop + _s.UpperBeamBearingTolerance)
+                    {
+                        yield return e;
+                        break;
+                    }
+                }
+            }
+        }
+
         private static bool SameStack(Column a, Column b, double tol) =>
             Vec3.DistanceXY(a.Axis, b.Axis) <= tol && a.ZBottom <= b.ZTop && b.ZBottom <= a.ZTop;
 
@@ -190,7 +222,8 @@ namespace BeamCheck.Core.Analysis
                     foreach (var run in runs)
                     {
                         // The beam rests on (or inside the head of) this stack.
-                        if (!(run.ZBottom < u.ZMin && u.ZMin <= run.ZTop + _s.UpperBeamBearingTolerance))
+                        // A stack that starts at the beam (its head or a post on it) stands on the beam, it does not carry it.
+                        if (!(run.ZBottom < u.ZMin - FootAllowance && u.ZMin <= run.ZTop + _s.UpperBeamBearingTolerance))
                             continue;
                         if (!OnBeamFootprint(u, run.Axis, out double pos))
                             continue;

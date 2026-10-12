@@ -98,6 +98,42 @@ namespace BeamCheck.Core.Tests
         }
 
         [Fact]
+        public void Three_supports_an_overhang_and_a_support_outside_the_selection_follow_the_lever_rule_per_span()
+        {
+            // Upper beam -500..8500 rests on S1 (0), S2 (4000) and a THIRD stack at 8000 that is not selected.
+            var ub = UpperBeam(-500, 8500, kg: 0);
+            var (input, els) = Setup(ub,
+                Std(8000, 0, 0, 2000), Std(8000, 0, 2000, 4000),   // foreign support
+                Std(1000, 0, 4200, 6200, kg: 40),                   // between S1 and S2   → S1 0.75, S2 0.25
+                Std(6000, 0, 4200, 6200, kg: 40),                   // between S2 and S3   → S2 0.50, S3 0.50
+                Std(-500, 0, 4200, 6200, kg: 40));                  // overhang 500 left of S1 → S1 1.125, S2 -0.125
+            var r = new BeamLoadSession(Settings(), input).Result;
+
+            // Own weight of a column: two 10 kg sections.
+            Assert.Equal(LoadCalculator.KgToKn(20 + 40 * (0.75 + 1.125)), r.Points[0].Gk, 6);
+            Assert.Equal(LoadCalculator.KgToKn(20 + 40 * (0.25 + 0.50 - 0.125)), r.Points[1].Gk, 6);
+            Assert.Equal(LoadCalculator.KgToKn(40 * (0.75 + 1.125)), r.Points[0].TransferGk, 6);
+        }
+
+        [Fact]
+        public void An_upper_beam_recognised_by_its_name_is_found_without_picking_it_by_hand()
+        {
+            var shape = new Recognition.ShapeAnalyzer(new BeamCheckSettings());
+            var classifier = new Recognition.ElementClassifier(new BeamCheckSettings());
+            var sig = new Recognition.ElementSignature { EntityType = "Part", Layer = "PERI_UP" };
+            sig.Add("PART:Name", "SRU 200");
+            Assert.Equal(ElementKind.Beam, classifier.Classify(sig).Kind);
+
+            var ub = UpperBeam(0, 4000);
+            Assert.Equal(ElementKind.Beam, ub.Kind);
+            var (input, _) = Setup(ub, Std(1000, 0, 4200, 6200));
+            var s = new BeamLoadSession(Settings(), input);
+
+            Assert.Single(s.Topology.UpperBeams);
+            Assert.Contains(s.Result.Warnings, w => w.Contains("опирается на 2 стоек") && w.Contains("на ней стоит 1 стоек"));
+        }
+
+        [Fact]
         public void Distribute_handles_spans_overhangs_and_single_supports()
         {
             Assert.Equal(new[] { 1.0 }, ScaffoldAnalyzer.Distribute(new[] { 100.0 }, 5000));

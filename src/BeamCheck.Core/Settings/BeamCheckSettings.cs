@@ -17,7 +17,7 @@ namespace BeamCheck.Core.Settings
         }
 
         /// <summary>Bumped when defaults change in a way old settings files must not keep.</summary>
-        public const int CurrentVersion = 7;
+        public const int CurrentVersion = 8;
 
         [DataMember(Order = 0)] public int SettingsVersion { get; set; }
 
@@ -253,8 +253,8 @@ namespace BeamCheck.Core.Settings
             UseShapeRecognition = true;
             ShapeMinLength = 250;
             ShapeStandardMaxPlan = 200;
-            ShapeLedgerMaxDz = 150;
-            ShapeLedgerMaxWidth = 80;
+            ShapeLedgerMaxDz = 300;
+            ShapeLedgerMaxWidth = 120;
             ShapeDeckMaxDz = 80;
             ShapeDeckMinWidth = 150;
             ShapeDeckMaxWidth = 800;

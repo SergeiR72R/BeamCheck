@@ -190,6 +190,22 @@ namespace BeamCheck.Cad
             if (e == null)
                 return;
 
+            // Heights come from the part's real body (its extents), not from the drawn axis lines: the top of a
+            // ledger is the top of its profile, so a taller reinforced ledger is measured correctly.
+            if (depth == 0)
+            {
+                try
+                {
+                    var ext = ent.GeometricExtents;
+                    e.ZMin = ext.MinPoint.Z * _toMm;
+                    e.ZMax = ext.MaxPoint.Z * _toMm;
+                }
+                catch (System.Exception)
+                {
+                    // Keep the heights derived from the lines.
+                }
+            }
+
             e.Id = id;
             e.Kind = kind;
             e.Article = cls.Article;

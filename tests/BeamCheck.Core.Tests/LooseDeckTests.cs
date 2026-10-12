@@ -45,7 +45,7 @@ namespace BeamCheck.Core.Tests
         public void The_seat_height_is_learned_from_the_model_so_a_uniform_offset_is_fine()
         {
             Assert.Equal(ExactArea, TotalArea(out var t, raiseAll: 120), 6);
-            Assert.Contains(t.Warnings, w => w.Contains("Посадка деков") && w.Contains("130"));
+            Assert.Contains(t.Warnings, w => w.Contains("Посадка деков") && w.Contains("180"));
         }
 
         [Fact]

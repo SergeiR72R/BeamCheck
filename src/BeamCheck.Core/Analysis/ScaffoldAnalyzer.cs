@@ -91,11 +91,23 @@ namespace BeamCheck.Core.Analysis
             AddDecks(topo, active, sink, all.Where(e => e.Kind == ElementKind.Deck).ToList(), ledgers, input.ForcedIds);
             AddUpperBeamWeights(topo, sink);
 
+            topo.Warnings.Add(DescribeNeighbourhood(all, active));
+
             // Pass everything standing on upper beams down to the columns of the beam under check.
             foreach (var c in sink)
                 topo.Contributions.AddRange(Resolve(c, topo, 0));
             PruneLevels(topo);
             return topo;
+        }
+
+        /// <summary>What was recognised around the columns (≤ 3 m): kinds with a few part names, to spot misrecognition.</summary>
+        private string DescribeNeighbourhood(List<ScaffoldElement> all, List<Column> columns)
+        {
+            var near = all.Where(e => columns.Any(c =>
+                Vec3.DistanceXY(c.Axis, (e.Start + e.End) / 2) <= 3000 && e.ZMax >= c.ZBottom - 300 && e.ZMin <= c.ZTop + 300)).ToList();
+            var groups = near.GroupBy(e => e.Kind).OrderBy(g => g.Key.ToString())
+                .Select(g => g.Key + "×" + g.Count() + " (" + string.Join(", ", g.Select(x => x.DisplayName).Distinct().Take(3)) + ")");
+            return "ℹ Вокруг стоек (≤3 м) распознано: " + (near.Count == 0 ? "ничего" : string.Join("; ", groups)) + ".";
         }
 
         private static bool IsSameBeam(ScaffoldElement a, ScaffoldElement b) =>
@@ -512,8 +524,8 @@ namespace BeamCheck.Core.Analysis
             double seat = CalibrateDeckSeat(decks, ledgers);
             if (decks.Count > 0)
                 topo.Warnings.Add(string.Format(CultureInfo.InvariantCulture,
-                "ℹ Посадка деков: опорная точка дека выше оси леджера на {0:0} мм (допуск ±{1:0} мм по высоте, ≤{2:0} мм в плане).",
-                seat, _s.DeckHeightTolerance, _s.DeckBearingTolerance));
+                    "ℹ Посадка деков: верх дека выше верха леджера на {0:0} мм (допуск ±{1:0} мм по высоте, ≤{2:0} мм в плане).",
+                    seat, _s.DeckHeightTolerance, _s.DeckBearingTolerance));
 
             foreach (var deck in decks)
             {
@@ -593,7 +605,7 @@ namespace BeamCheck.Core.Analysis
                 double bestPlan = double.MaxValue;
                 foreach (var l in ledgers)
                 {
-                    if (Math.Abs(deck.ZMin - (l.Start.Z + l.End.Z) / 2) > 3000)
+                    if (Math.Abs(deck.ZMax - l.ZMax) > 3000)
                         continue;
                     PlanGeometry.ProjectXY(l.Start, l.End, end, out double d);
                     if (d < bestPlan)
@@ -605,7 +617,7 @@ namespace BeamCheck.Core.Analysis
 
                 parts.Add(best == null
                     ? "леджера нет"
-                    : string.Format(CultureInfo.InvariantCulture, "{0:0} / {1:+0;-0;0} мм", bestPlan, deck.ZMin - (best.Start.Z + best.End.Z) / 2 - seat));
+                    : string.Format(CultureInfo.InvariantCulture, "{0:0} / {1:+0;-0;0} мм", bestPlan, deck.ZMax - best.ZMax - seat));
             }
 
             return deck.DisplayName + " Z=" + deck.ZMin.ToString("0", CultureInfo.InvariantCulture) + " [" + string.Join(" | ", parts) + "]";
@@ -636,8 +648,9 @@ namespace BeamCheck.Core.Analysis
 
             foreach (var l in ledgers)
             {
-                double ledgerZ = (l.Start.Z + l.End.Z) / 2;
-                double dz = deck.ZMin - ledgerZ;
+                // Top of the deck against top of the ledger: the same on every ledger type and whether the part
+                // was read from its axis lines or from its bounding box.
+                double dz = deck.ZMax - l.ZMax;
                 bool heightOk = nominalDz.HasValue
                     ? Math.Abs(dz - nominalDz.Value) <= (heightTol ?? _s.DeckHeightTolerance)
                     : dz >= _s.DeckOverLedgerMin && dz <= _s.DeckOverLedgerMax;
@@ -666,8 +679,9 @@ namespace BeamCheck.Core.Analysis
         }
 
         /// <summary>
-        /// How high the deck reference sits above the ledger axis in this model (median over decks that
-        /// lie on a ledger within the plan tolerance). Depends on which outline PERI draws for the deck.
+        /// How far the top of a deck sits above the TOP of the ledger it lies on, in this model (median over decks
+        /// that lie on a ledger within the plan tolerance and inside the broad height window). The reference is
+        /// the ledger's top face, so a taller (reinforced) ledger carries its decks higher and still matches.
         /// </summary>
         private double CalibrateDeckSeat(List<ScaffoldElement> decks, List<ScaffoldElement> ledgers)
         {
@@ -678,7 +692,7 @@ namespace BeamCheck.Core.Analysis
                 {
                     var l = FindBearingLedger(deck, bearing, ledgers, out _);
                     if (l != null)
-                        dzs.Add(deck.ZMin - (l.Start.Z + l.End.Z) / 2);
+                        dzs.Add(deck.ZMax - l.ZMax);
                 }
             }
 

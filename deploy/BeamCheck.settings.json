@@ -1,5 +1,5 @@
 {
-  "SettingsVersion": 7,
+  "SettingsVersion": 8,
   "LoadClasses": [
     {
       "Class": 1,
@@ -114,8 +114,8 @@
   "UseShapeRecognition": true,
   "ShapeMinLength": 250,
   "ShapeStandardMaxPlan": 200,
-  "ShapeLedgerMaxDz": 150,
-  "ShapeLedgerMaxWidth": 80,
+  "ShapeLedgerMaxDz": 300,
+  "ShapeLedgerMaxWidth": 120,
   "ShapeDeckMaxDz": 80,
   "ShapeDeckMinWidth": 150,
   "ShapeDeckMaxWidth": 800,

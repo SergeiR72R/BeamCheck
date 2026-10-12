@@ -243,24 +243,31 @@ namespace BeamCheck.Cad
             double zMin = beam.ZMin - r;
 
             var result = new List<ScaffoldElement>();
+            int noExtents = 0;
             var ms = (BlockTableRecord)tr.GetObject(SymbolUtilityServices.GetBlockModelSpaceId(db), OpenMode.ForRead);
             foreach (ObjectId id in ms)
             {
                 if (!(tr.GetObject(id, OpenMode.ForRead) is Entity ent) || IsAnnotation(ent))
                     continue;
+                // An object whose extents cannot be taken is not skipped silently: it is read anyway and
+                // judged by its geometry later.
                 Extents3d ext;
+                bool hasExtents = true;
                 try
                 {
                     ext = ent.GeometricExtents;
                 }
                 catch (System.Exception)
                 {
-                    continue;
+                    ext = default(Extents3d);
+                    hasExtents = false;
+                    noExtents++;
                 }
 
-                if (ext.MaxPoint.X * toMm < x0 || ext.MinPoint.X * toMm > x1 ||
-                    ext.MaxPoint.Y * toMm < y0 || ext.MinPoint.Y * toMm > y1 ||
-                    ext.MaxPoint.Z * toMm < zMin)
+                if (hasExtents &&
+                    (ext.MaxPoint.X * toMm < x0 || ext.MinPoint.X * toMm > x1 ||
+                     ext.MaxPoint.Y * toMm < y0 || ext.MinPoint.Y * toMm > y1 ||
+                     ext.MaxPoint.Z * toMm < zMin))
                     continue;
 
                 foreach (var e in reader.Read(ent))
@@ -268,6 +275,8 @@ namespace BeamCheck.Cad
                         result.Add(e);
             }
 
+            if (noExtents > 0)
+                CadApp.DocumentManager.MdiActiveDocument?.Editor.WriteMessage("\nОбъектов без габаритов (прочитаны без отбора по области): " + noExtents);
             return result;
         }
 

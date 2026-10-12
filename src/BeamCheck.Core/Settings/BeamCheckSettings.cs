@@ -99,6 +99,12 @@ namespace BeamCheck.Core.Settings
         /// <summary>How far above the stack top an upper beam may sit and still count as carried by it.</summary>
         [DataMember(Order = 30)] public double UpperBeamBearingTolerance { get; set; }
 
+        /// <summary>
+        /// A load on the overhang of an upper beam relieves its far support by statics. false (default) = that relief is not
+        /// credited, the checked column never gets less than its share without the overhang loads (conservative).
+        /// </summary>
+        [DataMember(Order = 70, EmitDefaultValue = true)] public bool UpperBeamAllowUplift { get; set; }
+
         /// <summary>Max vertical gap between stacked sections of one column.</summary>
         [DataMember(Order = 29)] public double ColumnGapTolerance { get; set; }
 

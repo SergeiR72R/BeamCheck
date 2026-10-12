@@ -107,12 +107,32 @@ namespace BeamCheck.Core.Tests
                 Std(1000, 0, 4200, 6200, kg: 40),                   // between S1 and S2   → S1 0.75, S2 0.25
                 Std(6000, 0, 4200, 6200, kg: 40),                   // between S2 and S3   → S2 0.50, S3 0.50
                 Std(-500, 0, 4200, 6200, kg: 40));                  // overhang 500 left of S1 → S1 1.125, S2 -0.125
-            var r = new BeamLoadSession(Settings(), input).Result;
+            var uplift = Settings();
+            uplift.UpperBeamAllowUplift = true;
+            var r = new BeamLoadSession(uplift, input).Result;
 
             // Own weight of a column: two 10 kg sections.
             Assert.Equal(LoadCalculator.KgToKn(20 + 40 * (0.75 + 1.125)), r.Points[0].Gk, 6);
             Assert.Equal(LoadCalculator.KgToKn(20 + 40 * (0.25 + 0.50 - 0.125)), r.Points[1].Gk, 6);
             Assert.Equal(LoadCalculator.KgToKn(40 * (0.75 + 1.125)), r.Points[0].TransferGk, 6);
+        }
+
+        [Fact]
+        public void A_load_on_an_overhang_does_not_relieve_the_far_support_unless_allowed()
+        {
+            var ub = UpperBeam(-500, 8500, kg: 0);
+            var (input, _) = Setup(ub,
+                Std(8000, 0, 0, 2000), Std(8000, 0, 2000, 4000),
+                Std(-500, 0, 4200, 6200, kg: 40));   // overhang 500 left of S1: S1 1.125, S2 -0.125
+            var s = new BeamLoadSession(Settings(), input);
+            var r = s.Result;
+
+            Assert.All(s.Topology.Contributions, c => Assert.True(c.Share >= 0));
+            Assert.All(s.Topology.Levels, l => Assert.True(s.LevelArea(l) >= 0));
+            // The overhang stand loads S1 (1.125) and does not relieve S2: S2 gets no transfer, and nothing is subtracted.
+            Assert.Equal(LoadCalculator.KgToKn(40 * 1.125), r.Points[0].TransferGk, 6);
+            Assert.Equal(0, r.Points[1].TransferGk, 6);
+            Assert.Contains(s.Result.Warnings, w => w.Contains("разгрузка не учитывается"));
         }
 
         [Fact]

@@ -121,6 +121,7 @@
   "ShapeLedgerMaxDz": 300,
   "ShapeLedgerMaxWidth": 120,
   "ShapeDeckMaxDz": 80,
+  "UpperBeamAllowUplift": false,
   "ShapeDeckMinWidth": 150,
   "ShapeDeckMaxWidth": 800,
   "PeriDisplayBlockPattern": "^PERI_(\\d{6}(?:-\\d+)?)_PartDisplayName_(.+)$",

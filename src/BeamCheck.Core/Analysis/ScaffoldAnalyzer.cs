@@ -57,6 +57,7 @@ namespace BeamCheck.Core.Analysis
                 throw new ArgumentException("Beam is required.", nameof(input));
 
             var topo = new Topology { Beam = input.Beam };
+            _upliftWarned.Clear();
             bool Active(ScaffoldElement e) => e != null && !input.ExcludedIds.Contains(e.Id);
 
             // What the user picked as a standard wins over how the same object was classified during the scan.
@@ -283,7 +284,7 @@ namespace BeamCheck.Core.Analysis
                 var share = new double[pos.Length];
                 for (int j = 0; j < n; j++)
                 {
-                    var f = Distribute(pos, (j + 0.5) / n * len);
+                    var f = Shares(pos, (j + 0.5) / n * len, link.Beam, topo);
                     for (int i = 0; i < pos.Length; i++)
                         share[i] += f[i] / n;
                 }
@@ -296,6 +297,32 @@ namespace BeamCheck.Core.Analysis
                 }
             }
         }
+
+        /// <summary>
+        /// <see cref="Distribute"/> for the analysis: a load on an overhang relieves the far support (negative share). Unless
+        /// <see cref="BeamCheckSettings.UpperBeamAllowUplift"/> is set that relief is not credited (on the safe side).
+        /// </summary>
+        private double[] Shares(double[] pos, double x, ScaffoldElement beam, Topology topo)
+        {
+            var f = Distribute(pos, x);
+            if (_s.UpperBeamAllowUplift)
+                return f;
+            bool clamped = false;
+            for (int i = 0; i < f.Length; i++)
+            {
+                if (f[i] < 0)
+                {
+                    f[i] = 0;
+                    clamped = true;
+                }
+            }
+
+            if (clamped && _upliftWarned.Add(beam.Id))
+                topo.Warnings.Add("ℹ Балка " + beam.DisplayName + ": нагрузка на консоли разгружает дальнюю опору — разгрузка не учитывается (запас). Включается в настройках: UpperBeamAllowUplift.");
+            return f;
+        }
+
+        private readonly HashSet<string> _upliftWarned = new HashSet<string>();
 
         /// <summary>
         /// Fractions of a unit load at <paramref name="x"/> that each support takes, treating every
@@ -362,7 +389,7 @@ namespace BeamCheck.Core.Analysis
             if (link == null || depth > 8)
                 yield break;
 
-            var f = Distribute(link.Supports.Select(x => x.Position).ToArray(), c.Column.Position);
+            var f = Shares(link.Supports.Select(x => x.Position).ToArray(), c.Column.Position, link.Beam, topo);
             for (int i = 0; i < f.Length; i++)
             {
                 if (link.Supports[i].Column == null || Math.Abs(f[i]) < 1e-9)

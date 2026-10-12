@@ -17,7 +17,7 @@ namespace BeamCheck.Core.Settings
         }
 
         /// <summary>Bumped when defaults change in a way old settings files must not keep.</summary>
-        public const int CurrentVersion = 11;
+        public const int CurrentVersion = 12;
 
         [DataMember(Order = 0)] public int SettingsVersion { get; set; }
 
@@ -121,7 +121,7 @@ namespace BeamCheck.Core.Settings
 
         [DataMember(Order = 44)] public double AccessoryKgPerM { get; set; }
 
-        /// <summary>Upper beams of unknown weight: 0 = not counted (a warning is shown).</summary>
+        /// <summary>Upper beams whose article is unknown, kg per metre (default: SRU U120 ≈ 27; RCS climbing rails are about 52). 0 = not counted (a warning is shown).</summary>
         [DataMember(Order = 46)] public double BeamKgPerM { get; set; }
 
         /// <summary>Article number → weight/kind overrides.</summary>
@@ -247,6 +247,7 @@ namespace BeamCheck.Core.Settings
             DeckKgPerM2 = 22;
             DiagonalKgPerM = 3.5;
             AccessoryKgPerM = 3.0;
+            BeamKgPerM = 27;
             Catalog = new List<CatalogItem>();
 
             // Short PERI codes are delimited by non-alphanumerics (underscore counts as a delimiter).

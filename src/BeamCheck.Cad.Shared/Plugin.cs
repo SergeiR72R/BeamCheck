@@ -43,7 +43,7 @@ namespace BeamCheck.Cad
         }
 
         /// <summary>Build tag shown in the dialog title, to tell which package is loaded.</summary>
-        public const string BuildTag = "v19";
+        public const string BuildTag = "v20";
 
         /// <summary>Appends a line to %APPDATA%\BeamCheck\BeamCheck.log (load diagnostics).</summary>
         public static void Log(string line)

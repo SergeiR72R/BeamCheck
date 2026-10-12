@@ -1,5 +1,5 @@
 {
-  "SettingsVersion": 11,
+  "SettingsVersion": 12,
   "LoadClasses": [
     {
       "Class": 1,
@@ -59,7 +59,7 @@
   "DiagonalKgPerM": 3.5,
   "AccessoryKgPerM": 3,
   "Catalog": [ ],
-  "BeamKgPerM": 0,
+  "BeamKgPerM": 27,
   "Rules": [
     {
       "Kind": "Beam",

@@ -16,5 +16,10 @@ namespace BeamCheck.Core.Model
         Diagonal,
         /// <summary>Guardrail, toe board etc.; self-weight split to its end nodes.</summary>
         Accessory,
+        /// <summary>
+        /// Console bracket (UCM): a cantilever fixed to a standard. Decks lie on it and a standard can stand on its tip;
+        /// everything it carries goes down the standard it is fixed to.
+        /// </summary>
+        Console,
     }
 }

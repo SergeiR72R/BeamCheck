@@ -123,6 +123,9 @@ namespace BeamCheck.Core.Recognition
                 return e;
             }
 
+            if (kind == ElementKind.Console)
+                return BuildConsole(segs, e, box);
+
             var axisSeg = LongestHorizontal(segs) ?? segs.OrderByDescending(s => s.PlanLength).First();
             if (axisSeg.PlanLength < 1e-6)
                 return null;
@@ -137,6 +140,38 @@ namespace BeamCheck.Core.Recognition
             e.Start = (across + plan.Dir * plan.UMin).WithZ(z);
             e.End = (across + plan.Dir * plan.UMax).WithZ(z);
             e.Width = plan.Width;
+            return e;
+        }
+
+        /// <summary>
+        /// A console bracket (UCM): the deck-bearing top rail is its longest horizontal line; strut, pin and fittings
+        /// are ignored, so its top is the rail (not the pin that stands above it).
+        /// </summary>
+        private static ScaffoldElement BuildConsole(IList<Segment> segs, ScaffoldElement e, Box box)
+        {
+            var rail = LongestHorizontal(segs);
+            if (!rail.HasValue || rail.Value.PlanLength < 1e-6)
+                return null;
+            double min = 0.8 * rail.Value.Length;
+            var rails = segs.Where(s => s.IsHorizontal(1) && s.Length >= min).ToList();
+            double top = rails.Max(s => Math.Max(s.A.Z, s.B.Z));
+            // A bounding box has rails at the top and the bottom; a drawn bracket only has its top rail.
+            var dir = (rail.Value.B - rail.Value.A).PlanDirection();
+            var a = rail.Value.A;
+            var b = rail.Value.B;
+            if (a.DotXY(dir) > b.DotXY(dir))
+            {
+                var t = a;
+                a = b;
+                b = t;
+            }
+
+            var plan = PlanExtents(segs, rail.Value);
+            e.Start = a.WithZ(top);
+            e.End = b.WithZ(top);
+            e.Width = plan.Width;
+            e.ZMin = box.Min.Z;
+            e.ZMax = top;
             return e;
         }
 

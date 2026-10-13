@@ -56,7 +56,7 @@ namespace BeamCheck.Cad
             var classifier = new ElementClassifier(settings);
             double toMm = CadUnits.ToMm(db, settings);
 
-            var peo = new PromptEntityOptions("\nВыберите балку: ");
+            var peo = new PromptEntityOptions("\nВыберите балку или леджер: ");
             var per = ed.GetEntity(peo);
             if (per.Status != PromptStatus.OK)
                 return;
@@ -86,9 +86,14 @@ namespace BeamCheck.Cad
                     return;
                 }
 
+                // The user may pick a beam or a ledger: what the part says it is (name, else shape) decides.
+                var natural = reader.Read(beamEnt, null).FirstOrDefault();
+                bool isLedger = natural != null && natural.Kind == ElementKind.Ledger;
                 ed.WriteMessage(string.Format(CultureInfo.InvariantCulture,
-                    "\nБалка: {0}  ось {1} → {2}  L={3:0} мм  ширина {4:0}  верх Z={5:0}",
-                    beam.DisplayName, beam.Start, beam.End, beam.PlanLength, beam.Width, beam.ZMax));
+                    "\n{6}: {0}  ось {1} → {2}  L={3:0} мм  ширина {4:0}  верх Z={5:0}",
+                    beam.DisplayName, beam.Start, beam.End, beam.PlanLength, beam.Width, beam.ZMax, isLedger ? "Леджер" : "Балка"));
+                if (isLedger)
+                    ed.WriteMessage("\n  определён как леджер: деки, лежащие на нём, учитываются отдельными точками D1…");
 
                 var selected = new List<ScaffoldElement>();
                 int shown = 0;
@@ -134,7 +139,13 @@ namespace BeamCheck.Cad
                     Beam = beam,
                     SelectedStandards = selected,
                     Candidates = candidates,
+                    DirectDecks = isLedger,
                 });
+                if (isLedger)
+                {
+                    session.Options.BeamName = "Леджер " + beam.DisplayName;
+                    session.Recalculate();
+                }
                 foreach (var kv in reader.TopLevelIds)
                     idMap[kv.Key] = kv.Value;
                 LogRecognition(session, beam, selected, candidates);
@@ -223,7 +234,7 @@ namespace BeamCheck.Cad
         private static void AddObjects(Document doc, BeamLoadSession session, ElementClassifier classifier, double toMm, Dictionary<string, ObjectId> idMap)
         {
             var ed = doc.Editor;
-            var kwo = new PromptKeywordOptions("\nКак учитывать добавляемые объекты [Дек/Леджер/Стойка/Авто]: ", "Deck Ledger Standard Auto");
+            var kwo = new PromptKeywordOptions("\nКак учитывать добавляемые объекты [Дек/Леджер/Стойка/Консоль/Авто]: ", "Deck Ledger Standard Console Auto");
             var kw = ed.GetKeywords(kwo);
             if (kw.Status != PromptStatus.OK)
                 return;
@@ -234,6 +245,7 @@ namespace BeamCheck.Cad
                 case "Deck": kind = ElementKind.Deck; break;
                 case "Ledger": kind = ElementKind.Ledger; break;
                 case "Standard": kind = ElementKind.Standard; break;
+                case "Console": kind = ElementKind.Console; break;
             }
 
             var res = ed.GetSelection(new PromptSelectionOptions { MessageForAdding = "\nВыберите объекты для добавления в расчёт: " });

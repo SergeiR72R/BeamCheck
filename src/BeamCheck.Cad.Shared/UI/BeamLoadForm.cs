@@ -41,6 +41,7 @@ namespace BeamCheck.Cad.UI
         private Label _info;
         private GroupBox _resultsBox;
         private CheckBox _snap;
+        private CheckBox _direct;
         private NumericUpDown _snapMm;
 
         public BeamLoadForm(BeamLoadSession session)
@@ -89,12 +90,13 @@ namespace BeamCheck.Cad.UI
             _snap = new CheckBox { Text = "Деки не на леджере — привязать к ближайшему, мм:", AutoSize = true, Margin = new Padding(12, 6, 3, 3) };
             _snapMm = new NumericUpDown { Minimum = 50, Maximum = 2000, Increment = 50, Value = 300, Width = 70 };
             _flip = new CheckBox { Text = "Отсчёт от другого конца балки", AutoSize = true, Margin = new Padding(12, 6, 3, 3) };
+            _direct = new CheckBox { Text = "Деки, лежащие на самом элементе (D1…)", AutoSize = true, Margin = new Padding(12, 6, 3, 3) };
             options.Controls.AddRange(new Control[]
             {
                 Caption("Класс нагрузки:"), _loadClass,
                 Caption("Ярусы:"), _levelMode,
                 Caption("γG:"), _gammaG, Caption("γQ:"), _gammaQ,
-                _showDesign, _flip, _snap, _snapMm,
+                _showDesign, _flip, _snap, _snapMm, _direct,
             });
             root.Controls.Add(options);
 
@@ -156,6 +158,17 @@ namespace BeamCheck.Cad.UI
             };
             _snap.CheckedChanged += snapChanged;
             _snapMm.ValueChanged += snapChanged;
+            _direct.CheckedChanged += (s, e) =>
+            {
+                if (_updating)
+                    return;
+                _session.Input.DirectDecks = _direct.Checked;
+                _session.Reanalyze();
+                _session.StatusMessage = _direct.Checked
+                    ? "Деки, лежащие на самом элементе, учтены отдельными точками D1…"
+                    : "Деки на самом элементе не учитываются.";
+                RefreshAll();
+            };
             _levelMode.SelectedIndexChanged += (s, e) =>
             {
                 if (_updating)
@@ -179,6 +192,7 @@ namespace BeamCheck.Cad.UI
             _flip.Checked = o.FlipBeam;
             _snap.Checked = _session.Settings.DeckSnapEnabled;
             _snapMm.Value = (decimal)Math.Max(50, Math.Min(2000, _session.Settings.DeckSnapDistance));
+            _direct.Checked = _session.Input.DirectDecks;
             _updating = false;
         }
 

@@ -17,7 +17,7 @@ namespace BeamCheck.Core.Settings
         }
 
         /// <summary>Bumped when defaults change in a way old settings files must not keep.</summary>
-        public const int CurrentVersion = 12;
+        public const int CurrentVersion = 13;
 
         [DataMember(Order = 0)] public int SettingsVersion { get; set; }
 
@@ -129,6 +129,9 @@ namespace BeamCheck.Core.Settings
 
         /// <summary>Upper beams whose article is unknown, kg per metre (default: SRU U120 ≈ 27; RCS climbing rails are about 52). 0 = not counted (a warning is shown).</summary>
         [DataMember(Order = 46)] public double BeamKgPerM { get; set; }
+
+        /// <summary>Console brackets (UCM) whose article is not in the weights table, kg per metre of the top rail.</summary>
+        [DataMember(Order = 71)] public double ConsoleKgPerM { get; set; }
 
         /// <summary>Article number → weight/kind overrides.</summary>
         [DataMember(Order = 45)] public List<CatalogItem> Catalog { get; set; }
@@ -254,6 +257,7 @@ namespace BeamCheck.Core.Settings
             DiagonalKgPerM = 3.5;
             AccessoryKgPerM = 3.0;
             BeamKgPerM = 27;
+            ConsoleKgPerM = 6;
             Catalog = new List<CatalogItem>();
 
             // Short PERI codes are delimited by non-alphanumerics (underscore counts as a delimiter).
@@ -261,9 +265,10 @@ namespace BeamCheck.Core.Settings
             Rules = new List<RecognitionRule>
             {
                 new RecognitionRule("Beam", @"(?i)(gitterträger|gittertraeger|multiträger|multitraeger|träger|traeger|girder|балк|двутавр|(?<![A-Z0-9])(SRU|RCS|ULS|ULA|ELM|VT ?20|GT ?24|HEB|HEA|IPE|UPE)(?![A-Z]))"),
+                new RecognitionRule("Console", @"(?i)(konsole|console|консол|(?<![A-Z0-9])UCM(?![A-Z]))"),
                 new RecognitionRule("Deck", @"(?i)(deck|belag|plattform|platform|настил|(?<![A-Z0-9])(UD[IGPLA]|UAP)(?![A-Z]))"),
                 new RecognitionRule("Diagonal", @"(?i)(diagonal|диагонал|(?<![A-Z0-9])(UBL|UVD)(?![A-Z]))"),
-                new RecognitionRule("Accessory", @"(?i)(toe ?board|bordbrett|guard ?rail|gel[aä]nder|ограж|борт|(?<![A-Z0-9])UHA(?![A-Z]))"),
+                new RecognitionRule("Accessory", @"(?i)(toe ?board|bordbrett|guard ?rail|gel[aä]nder|ограж|борт|(?<![A-Z0-9])UHA(?![A-Z])|(?<![A-Z0-9])UH[ -]?Zapfen)"),
                 new RecognitionRule("Ledger", @"(?i)(ledger|riegel|transom|ригел|леджер|(?<![A-Z0-9])(UH[A-Z]?|U[LX])(?![A-Z]))"),
                 new RecognitionRule("Standard", @"(?i)(standard|vertical|stiel|vertikal|стойк|(?<![A-Z0-9])UV[RH](?![A-Z]))"),
             };

@@ -1,5 +1,5 @@
 {
-  "SettingsVersion": 12,
+  "SettingsVersion": 13,
   "LoadClasses": [
     {
       "Class": 1,
@@ -66,6 +66,10 @@
       "Pattern": "(?i)(gitterträger|gittertraeger|multiträger|multitraeger|träger|traeger|girder|балк|двутавр|(?<![A-Z0-9])(SRU|RCS|ULS|ULA|ELM|VT ?20|GT ?24|HEB|HEA|IPE|UPE)(?![A-Z]))"
     },
     {
+      "Kind": "Console",
+      "Pattern": "(?i)(konsole|console|консол|(?<![A-Z0-9])UCM(?![A-Z]))"
+    },
+    {
       "Kind": "Deck",
       "Pattern": "(?i)(deck|belag|plattform|platform|настил|(?<![A-Z0-9])(UD[IGPLA]|UAP)(?![A-Z]))"
     },
@@ -75,7 +79,7 @@
     },
     {
       "Kind": "Accessory",
-      "Pattern": "(?i)(toe ?board|bordbrett|guard ?rail|gel[aä]nder|ограж|борт|(?<![A-Z0-9])UHA(?![A-Z]))"
+      "Pattern": "(?i)(toe ?board|bordbrett|guard ?rail|gel[aä]nder|ограж|борт|(?<![A-Z0-9])UHA(?![A-Z])|(?<![A-Z0-9])UH[ -]?Zapfen)"
     },
     {
       "Kind": "Ledger",
@@ -122,6 +126,7 @@
   "ShapeLedgerMaxWidth": 120,
   "ShapeDeckMaxDz": 80,
   "UpperBeamAllowUplift": false,
+  "ConsoleKgPerM": 6,
   "ShapeDeckMinWidth": 150,
   "ShapeDeckMaxWidth": 800,
   "PeriDisplayBlockPattern": "^PERI_(\\d{6}(?:-\\d+)?)_PartDisplayName_(.+)$",

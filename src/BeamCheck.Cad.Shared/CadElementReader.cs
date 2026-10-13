@@ -192,7 +192,8 @@ namespace BeamCheck.Cad
 
             // Heights come from the part's real body (its extents), not from the drawn axis lines: the top of a
             // ledger is the top of its profile, so a taller reinforced ledger is measured correctly.
-            if (depth == 0)
+            // A console keeps the height of its deck-bearing rail: its pin and fittings stand well above the rail.
+            if (depth == 0 && kind != ElementKind.Console)
             {
                 try
                 {

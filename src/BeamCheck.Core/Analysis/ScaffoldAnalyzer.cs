@@ -26,6 +26,12 @@ namespace BeamCheck.Core.Analysis
         /// loosely it sits (the user has decided that it belongs to the structure).
         /// </summary>
         public ISet<string> ForcedIds { get; set; } = new HashSet<string>();
+
+        /// <summary>
+        /// Decks that lie on the checked member itself (a ledger carries decks directly) load it as point loads at their
+        /// bearing, named D1, D2…
+        /// </summary>
+        public bool DirectDecks { get; set; }
     }
 
     /// <summary>
@@ -45,6 +51,9 @@ namespace BeamCheck.Core.Analysis
         private readonly BeamCheckSettings _s;
         private List<ScaffoldElement> _ledgers = new List<ScaffoldElement>();
         private List<Column> _standRuns = new List<Column>();
+        private readonly Dictionary<string, Column> _consoleRoots = new Dictionary<string, Column>();
+        private readonly List<Column> _directContacts = new List<Column>();
+        private ScaffoldElement _member;
 
         public ScaffoldAnalyzer(BeamCheckSettings settings)
         {
@@ -58,6 +67,9 @@ namespace BeamCheck.Core.Analysis
 
             var topo = new Topology { Beam = input.Beam };
             _upliftWarned.Clear();
+            _consoleRoots.Clear();
+            _directContacts.Clear();
+            _member = input.DirectDecks ? input.Beam : null;
             bool Active(ScaffoldElement e) => e != null && !input.ExcludedIds.Contains(e.Id);
 
             // What the user picked as a standard wins over how the same object was classified during the scan.
@@ -80,7 +92,15 @@ namespace BeamCheck.Core.Analysis
             var active = new List<Column>(topo.Columns);
             var upper = all.Where(e => e.Kind == ElementKind.Beam && !IsSameBeam(e, input.Beam)).ToList();
             upper.AddRange(FindBeamsPassingThroughColumns(all, topo.Columns, input.Beam, upper));
+            // A console is a cantilever with a single support, its root: a beam that takes everything to one column.
+            var consoles = all.Where(e => e.Kind == ElementKind.Console).ToList();
+            upper.AddRange(consoles);
             FindUpperBeams(topo, upper, standards, active);
+            foreach (var link in topo.UpperBeams)
+            {
+                if (link.Beam.Kind == ElementKind.Console)
+                    _consoleRoots[link.Beam.Id] = link.Supports.Select(x => x.Column).FirstOrDefault(c => c != null);
+            }
 
             var sink = new List<Contribution>();
             foreach (var c in active)
@@ -93,12 +113,12 @@ namespace BeamCheck.Core.Analysis
             }
 
             var beamIds = new HashSet<string>(topo.UpperBeams.Select(l => l.Beam.Id));
-            var ledgers = all.Where(e => e.Kind == ElementKind.Ledger && !beamIds.Contains(e.Id)).ToList();
+            var ledgers = all.Where(e => e.Kind == ElementKind.Ledger && !beamIds.Contains(e.Id) && !IsSameBeam(e, input.Beam)).ToList();
             _ledgers = ledgers;
             _standRuns = BuildRuns(standards);
             AddLinearSelfWeight(topo, active, sink, ledgers, ContributionType.LedgerSelfWeight);
             AddLinearSelfWeight(topo, active, sink, all.Where(e => (e.Kind == ElementKind.Diagonal || e.Kind == ElementKind.Accessory) && !beamIds.Contains(e.Id)).ToList(), ContributionType.OtherSelfWeight);
-            AddDecks(topo, active, sink, all.Where(e => e.Kind == ElementKind.Deck).ToList(), ledgers, input.ForcedIds);
+            AddDecks(topo, active, sink, all.Where(e => e.Kind == ElementKind.Deck).ToList(), ledgers.Concat(consoles).ToList(), input.ForcedIds);
             AddUpperBeamWeights(topo, sink);
 
             topo.Warnings.Add(DescribeNeighbourhood(all, active));
@@ -107,7 +127,21 @@ namespace BeamCheck.Core.Analysis
             foreach (var c in sink)
                 topo.Contributions.AddRange(Resolve(c, topo, 0));
             PruneLevels(topo);
+            AddDirectContacts(topo);
             return topo;
+        }
+
+        /// <summary>Points where decks lie on the checked member itself, after the columns, in order along it (D1, D2…).</summary>
+        private void AddDirectContacts(Topology topo)
+        {
+            var used = new HashSet<Column>(topo.Contributions.Select(c => c.Column));
+            var contacts = _directContacts.Where(used.Contains).OrderBy(c => c.Position).ToList();
+            for (int i = 0; i < contacts.Count; i++)
+                contacts[i].Name = "D" + (i + 1).ToString(CultureInfo.InvariantCulture);
+            topo.Columns.AddRange(contacts);
+            if (contacts.Count > 0)
+                topo.Warnings.Add(string.Format(CultureInfo.InvariantCulture,
+                    "ℹ Деки, лежащие прямо на проверяемом элементе: {0} опор (точки D1…D{0}), по половине веса и полезной нагрузки дека на каждую.", contacts.Count));
         }
 
         /// <summary>What was recognised around the columns (≤ 3 m): kinds with a few part names, to spot misrecognition.</summary>
@@ -263,12 +297,14 @@ namespace BeamCheck.Core.Analysis
                     topo.UpperBeams.Add(link);
                     topo.UsedElementIds.Add(u.Id);
                     topo.Warnings.Add(string.Format(CultureInfo.InvariantCulture,
-                        "ℹ Балка {0} опирается на {1} стоек ({2} из выбранных), на ней стоит {3} стоек — их нагрузка передана на выбранные стойки.",
+                        u.Kind == ElementKind.Console
+                            ? "ℹ Консоль {0} закреплена на стойке, на ней стоит {3} стоек — вся её нагрузка идёт в эту стойку."
+                            : "ℹ Балка {0} опирается на {1} стоек ({2} из выбранных), на ней стоит {3} стоек — их нагрузка передана на выбранные стойки.",
                         u.DisplayName, link.Supports.Count, link.Supports.Count(x => x.Column != null), link.Loaded.Count));
-                    if (link.Loaded.Count == 0)
+                    if (link.Loaded.Count == 0 && u.Kind != ElementKind.Console)
                         topo.Warnings.Add("ℹ На балке " + u.DisplayName + " стоек не найдено, учтён только её вес.");
                     if (u.WeightKg <= 0)
-                        topo.Warnings.Add("Вес балки " + u.DisplayName + " неизвестен (0 кг) — добавьте артикул в BeamCheck.weights.csv.");
+                        topo.Warnings.Add("Вес " + (u.Kind == ElementKind.Console ? "консоли " : "балки ") + u.DisplayName + " неизвестен (0 кг) — добавьте артикул в BeamCheck.weights.csv.");
                 }
 
                 if (!progress)
@@ -696,6 +732,8 @@ namespace BeamCheck.Core.Analysis
         private void AddDecks(Topology topo, List<Column> columns, List<Contribution> sink, List<ScaffoldElement> decks, List<ScaffoldElement> ledgers, ISet<string> forced)
         {
             var deckContribs = new List<Contribution>();
+            if (_member != null)
+                ledgers = ledgers.Concat(new[] { _member }).ToList();
             int nearMissing = 0, halfSupported = 0, snapped = 0;
             double maxSnap = 0;
             var samples = new List<string>();
@@ -733,6 +771,18 @@ namespace BeamCheck.Core.Analysis
 
                     resolved++;
                     t = Math.Max(0, Math.Min(1, t));
+                    if (ReferenceEquals(ledger, _member))
+                    {
+                        AddDirectShare(topo, found, deck, ledger, t, 0.5);
+                        continue;
+                    }
+
+                    if (ledger.Kind == ElementKind.Console)
+                    {
+                        AddConsoleShare(topo, found, deck, ledger, 0.5);
+                        continue;
+                    }
+
                     AddDeckShare(topo, columns, found, deck, ledger, ledger.Start, 0.5 * (1 - t));
                     AddDeckShare(topo, columns, found, deck, ledger, ledger.End, 0.5 * t);
                 }
@@ -799,6 +849,31 @@ namespace BeamCheck.Core.Analysis
             }
 
             return deck.DisplayName + " Z=" + deck.ZMin.ToString("0", CultureInfo.InvariantCulture) + " [" + string.Join(" | ", parts) + "]";
+        }
+
+        /// <summary>A deck lying on the checked member: its half load acts at the bearing, on a point of its own.</summary>
+        private void AddDirectShare(Topology topo, List<Contribution> target, ScaffoldElement deck, ScaffoldElement member, double t, double share)
+        {
+            var axis = member.Start + (member.End - member.Start) * t;
+            var contact = new Column
+            {
+                Axis = axis.WithZ(deck.ZMax),
+                ZBottom = deck.ZMax,
+                ZTop = deck.ZMax,
+                Position = t * member.PlanLength,
+                OnBeam = true,
+            };
+            _directContacts.Add(contact);
+            target.Add(new Contribution { Column = contact, Source = deck, Via = member, Type = ContributionType.Deck, Share = share });
+        }
+
+        /// <summary>A deck lying on a console: the console is a cantilever, so all of it goes down the standard it is fixed to.</summary>
+        private void AddConsoleShare(Topology topo, List<Contribution> target, ScaffoldElement deck, ScaffoldElement console, double share)
+        {
+            if (!_consoleRoots.TryGetValue(console.Id, out var root) || root == null)
+                return; // fixed to a standard that is not part of this check
+            target.Add(new Contribution { Column = root, Source = deck, Via = console, ViaBeam = console, Type = ContributionType.Deck, Share = share });
+            topo.UsedElementIds.Add(console.Id);
         }
 
         private void AddDeckShare(Topology topo, List<Column> columns, List<Contribution> target, ScaffoldElement deck, ScaffoldElement ledger, Vec3 node, double share)

@@ -72,7 +72,7 @@ namespace BeamCheck.Core.Tests
             var table = ResultTable.Build(session.Result, ",");
             Assert.Equal(4, table.Rows.Count);
             Assert.Equal("1423", table.Rows[0][1]);
-            Assert.Contains("Стойка", table.ToCsv());
+            Assert.Contains("Ständer", table.ToCsv());
 
             var scheme = SchemeLayout.Build(session.Result, 125, ",");
             Assert.Equal(3, scheme.Arrows.Count);

@@ -17,7 +17,7 @@ namespace BeamCheck.Cad
     public sealed class Plugin : IExtensionApplication
     {
         public const string LoadedMessage =
-            "\nBeamCheck загружен. Команды: BEAMLOAD — нагрузки от стоек на балку, PERIDUMP — данные объектов, BEAMLOADSETTINGS — настройки.\n";
+            "\nBeamCheck geladen. Befehle: BEAMLOAD — Lasten aus Ständern auf Träger oder Riegel, PERIDUMP — Objektdaten, BEAMLOADSETTINGS — Einstellungen.\n";
 
         public void Initialize()
         {
@@ -43,7 +43,7 @@ namespace BeamCheck.Cad
         }
 
         /// <summary>Build tag shown in the dialog title, to tell which package is loaded.</summary>
-        public const string BuildTag = "v25";
+        public const string BuildTag = "v26";
 
         /// <summary>Appends a line to %APPDATA%\BeamCheck\BeamCheck.log (load diagnostics).</summary>
         public static void Log(string line)

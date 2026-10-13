@@ -1,8 +1,8 @@
-﻿# BeamCheck: вес деталей по артикулам (кг). Источник: Stückliste PERI CAD 24 (partlists_20261009).
+﻿# BeamCheck: Gewicht der Teile je Artikel (kg). Quelle: Stückliste PERI CAD 24.
 
-# Колонки: Article;WeightKg;Name[;Kind]. Kind (необязательно: Beam, Ledger, Deck, Standard, Diagonal, Accessory) задаёт тип детали по артикулу. Десятичный разделитель . или ,. Строки без веса игнорируются
+# Spalten: Article;WeightKg;Name[;Kind]. Kind (optional: Beam, Ledger, Deck, Standard, Diagonal, Accessory, Console) legt den Teiletyp je Artikel fest. Dezimaltrennzeichen . oder , Zeilen ohne Gewicht werden ignoriert
 
-# и считаются по запасным значениям из настроек (в диалоге выводится предупреждение).
+# und mit den Ersatzwerten aus den Einstellungen gerechnet (im Dialog erscheint ein Hinweis).
 
 Article;WeightKg;Name
 

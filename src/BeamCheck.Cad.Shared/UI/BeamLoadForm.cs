@@ -57,7 +57,7 @@ namespace BeamCheck.Cad.UI
 
         private void BuildUi()
         {
-            Text = "BeamCheck " + Plugin.BuildTag + " — нагрузки от стоек на балку";
+            Text = "BeamCheck " + Plugin.BuildTag + " — Lasten aus Ständern auf den Träger";
             Font = new Font("Segoe UI", 9f);
             StartPosition = FormStartPosition.CenterParent;
             MinimizeBox = false;
@@ -83,56 +83,56 @@ namespace BeamCheck.Cad.UI
             foreach (var c in _session.Settings.LoadClasses)
                 _loadClass.Items.Add(new ClassItem(c, _nf));
             _levelMode = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 260 };
-            _levelMode.Items.AddRange(new object[] { "Live load на одном ярусе — самом нагруженном", "Live load на всех ярусах 100%", "Один ярус 100% + один соседний 50% (EN 12811-1)" });
+            _levelMode.Items.AddRange(new object[] { "Nutzlast auf einer Ebene — der am höchsten belasteten", "Nutzlast auf allen Ebenen 100 %", "Eine Ebene 100 % + eine benachbarte 50 % (EN 12811-1)" });
             _gammaG = Num(1.35m);
             _gammaQ = Num(1.5m);
-            _showDesign = new CheckBox { Text = "На схеме — расчётные Fd", AutoSize = true, Margin = new Padding(12, 6, 3, 3) };
-            _snap = new CheckBox { Text = "Деки не на леджере — привязать к ближайшему, мм:", AutoSize = true, Margin = new Padding(12, 6, 3, 3) };
+            _showDesign = new CheckBox { Text = "Im Schema: Bemessungswerte Fd", AutoSize = true, Margin = new Padding(12, 6, 3, 3) };
+            _snap = new CheckBox { Text = "Beläge nicht auf einem Riegel — dem nächsten Riegel zuordnen, mm:", AutoSize = true, Margin = new Padding(12, 6, 3, 3) };
             _snapMm = new NumericUpDown { Minimum = 50, Maximum = 2000, Increment = 50, Value = 300, Width = 70 };
-            _flip = new CheckBox { Text = "Отсчёт от другого конца балки", AutoSize = true, Margin = new Padding(12, 6, 3, 3) };
-            _direct = new CheckBox { Text = "Деки, лежащие на самом элементе (D1…)", AutoSize = true, Margin = new Padding(12, 6, 3, 3) };
+            _flip = new CheckBox { Text = "Maße vom anderen Trägerende", AutoSize = true, Margin = new Padding(12, 6, 3, 3) };
+            _direct = new CheckBox { Text = "Beläge, die direkt auf dem Element liegen (D1…)", AutoSize = true, Margin = new Padding(12, 6, 3, 3) };
             options.Controls.AddRange(new Control[]
             {
-                Caption("Класс нагрузки:"), _loadClass,
-                Caption("Ярусы:"), _levelMode,
+                Caption("Lastklasse:"), _loadClass,
+                Caption("Ebenen:"), _levelMode,
                 Caption("γG:"), _gammaG, Caption("γQ:"), _gammaQ,
                 _showDesign, _flip, _snap, _snapMm, _direct,
             });
             root.Controls.Add(options);
 
             _levels = Grid();
-            _levels.Columns.Add("level", "Ярус");
-            _levels.Columns.Add("z", "Отметка, мм");
-            _levels.Columns.Add("area", "Площадь деков на стойки, м²");
-            _levels.Columns.Add("factor", "Полезная нагрузка, % q");
+            _levels.Columns.Add("level", "Ebene");
+            _levels.Columns.Add("z", "Höhe, mm");
+            _levels.Columns.Add("area", "Belagfläche auf den Ständern, m²");
+            _levels.Columns.Add("factor", "Nutzlast, % q");
             foreach (DataGridViewColumn c in _levels.Columns)
                 c.ReadOnly = c.Name != "factor";
             _levels.CellEndEdit += OnLevelFactorEdited;
-            root.Controls.Add(Group("Ярусы (коэффициент можно редактировать)", _levels));
+            root.Controls.Add(Group("Ebenen (Faktor editierbar)", _levels));
 
             _results = Grid();
-            foreach (var h in new[] { "Стойка", "X, мм", "Площадь, м²", "Live load, кН", "Self weight, кН", "Total load, кН", "Fd, кН", "С верх. балок, кН", "Высота до Z, мм", "Секций", "По ярусам" })
+            foreach (var h in new[] { "Ständer", "X, mm", "Fläche, m²", "Nutzlast, kN", "Eigengewicht, kN", "Gesamtlast, kN", "Fd, kN", "Aus oberen Trägern, kN", "Höhe bis Z, mm", "Abschnitte", "Nach Ebenen" })
                 _results.Columns.Add(h, h);
             _results.Columns[10].AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
             foreach (DataGridViewColumn c in _results.Columns)
                 c.ReadOnly = true;
-            _resultsBox = Group("Нагрузки на балку", _results);
+            _resultsBox = Group("Lasten auf den Träger", _results);
             root.Controls.Add(_resultsBox);
 
             _warnings = new TextBox { Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical, Dock = DockStyle.Fill, ForeColor = Color.DarkRed };
             root.Controls.Add(_warnings);
 
             var buttons = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Fill, FlowDirection = FlowDirection.RightToLeft };
-            var insert = MakeButton("Вставить в чертёж", FormAction.Insert);
-            var cancel = MakeButton("Отмена", FormAction.Cancel);
-            var export = new Button { Text = "Экспорт CSV…", AutoSize = true };
+            var insert = MakeButton("In Zeichnung einfügen", FormAction.Insert);
+            var cancel = MakeButton("Abbrechen", FormAction.Cancel);
+            var export = new Button { Text = "CSV-Export…", AutoSize = true };
             export.Click += (s, e) => ExportCsv();
             buttons.Controls.AddRange(new Control[]
             {
                 cancel, insert, export,
-                MakeButton("Добавить объекты…", FormAction.Add),
-                MakeButton("Исключить объекты…", FormAction.Exclude),
-                MakeButton("Показать в модели", FormAction.Highlight),
+                MakeButton("Objekte hinzufügen…", FormAction.Add),
+                MakeButton("Objekte ausschließen…", FormAction.Exclude),
+                MakeButton("Im Modell zeigen…", FormAction.Highlight),
             });
             root.Controls.Add(buttons);
             AcceptButton = insert;
@@ -152,8 +152,8 @@ namespace BeamCheck.Cad.UI
                 _session.Settings.DeckSnapHeight = Math.Max(_session.Settings.DeckSnapHeight, (double)_snapMm.Value);
                 _session.Reanalyze();
                 _session.StatusMessage = _snap.Checked
-                    ? "Деки, лежащие не на леджере, привязываются к ближайшему (до " + _snapMm.Value + " мм) — расчёт обновлён."
-                    : "Привязка к ближайшему леджеру выключена: строгий допуск — расчёт обновлён.";
+                    ? "Beläge, die nicht auf einem Riegel liegen, werden dem nächsten Riegel zugeordnet (bis " + _snapMm.Value + " mm) — Berechnung aktualisiert."
+                    : "Zuordnung zum nächsten Riegel ausgeschaltet: strenge Toleranz — Berechnung aktualisiert.";
                 RefreshAll();
             };
             _snap.CheckedChanged += snapChanged;
@@ -165,8 +165,8 @@ namespace BeamCheck.Cad.UI
                 _session.Input.DirectDecks = _direct.Checked;
                 _session.Reanalyze();
                 _session.StatusMessage = _direct.Checked
-                    ? "Деки, лежащие на самом элементе, учтены отдельными точками D1…"
-                    : "Деки на самом элементе не учитываются.";
+                    ? "Beläge, die direkt auf dem Element liegen, werden als einzelne Punkte D1… berücksichtigt."
+                    : "Beläge direkt auf dem Element werden nicht berücksichtigt.";
                 RefreshAll();
             };
             _levelMode.SelectedIndexChanged += (s, e) =>
@@ -245,23 +245,23 @@ namespace BeamCheck.Cad.UI
         {
             var r = _session.Result;
             var topo = _session.Topology;
-            _info.Text = (string.IsNullOrEmpty(_session.StatusMessage) ? "" : "▶ " + _session.StatusMessage + Environment.NewLine) + string.Format("Балка: {0}   L = {1} мм   стоек: {2}   ярусов: {3}   верхних балок: {4}   учтено объектов: {5}",
+            _info.Text = (string.IsNullOrEmpty(_session.StatusMessage) ? "" : "▶ " + _session.StatusMessage + Environment.NewLine) + string.Format("Träger: {0}   L = {1} mm   Ständer: {2}   Ebenen: {3}   obere Träger: {4}   berücksichtigte Objekte: {5}",
                 string.IsNullOrEmpty(r.BeamName) ? "—" : r.BeamName, _nf.Mm(r.BeamLength), topo.Columns.Count, topo.Levels.Count, topo.UpperBeams.Count, topo.UsedElementIds.Count);
 
             _results.Rows.Clear();
             foreach (var p in r.Points)
             {
                 string perLevel = string.Join("; ", p.Levels.Select(l =>
-                    $"{l.Level.Index}: {_nf.Num(l.AreaM2, 2)} м² × {_nf.Num(l.Factor * 100, 0)}% → Q {_nf.Num(l.Qk, 2)}, G дек {_nf.Num(l.DeckGk, 2)}"));
+                    $"{l.Level.Index}: {_nf.Num(l.AreaM2, 2)} m² × {_nf.Num(l.Factor * 100, 0)} % → Q {_nf.Num(l.Qk, 2)}, G Beläge {_nf.Num(l.DeckGk, 2)}"));
                 _results.Rows.Add(p.Name, _nf.Mm(p.Position), _nf.Num(p.AreaM2, 2), _nf.Num(p.Qk, 2), _nf.Num(p.Gk, 2),
                     _nf.Num(p.Fk, 2), _nf.Num(p.Fd, 2), _nf.Num(p.TransferFk, 2), _nf.Mm(p.ZTop), p.SectionCount, perLevel);
             }
 
-            _resultsBox.Text = string.Format("Summary:  площадь (все ярусы до верха) {0} м²   |   live load {1} кН   |   self weight load {2} кН   |   total load {3} кН",
+            _resultsBox.Text = string.Format("Zusammenfassung:  Fläche (alle Ebenen bis oben) {0} m²   |   Nutzlast {1} kN   |   Eigengewicht {2} kN   |   Gesamtlast {3} kN",
                 _nf.Num(r.Points.Sum(p => p.AreaM2), 2), _nf.Num(r.Points.Sum(p => p.Qk), 2),
                 _nf.Num(r.Points.Sum(p => p.Gk), 2), _nf.Num(r.Points.Sum(p => p.Fk), 2));
 
-            _warnings.Text = r.Warnings.Count == 0 ? "Замечаний нет." : string.Join(Environment.NewLine, r.Warnings.Distinct());
+            _warnings.Text = r.Warnings.Count == 0 ? "Keine Hinweise." : string.Join(Environment.NewLine, r.Warnings.Distinct());
         }
 
         private void ExportCsv()
@@ -325,7 +325,7 @@ namespace BeamCheck.Cad.UI
 
             public LoadClassDefinition Definition { get; }
 
-            public override string ToString() => $"Класс {Definition.Class} — {_nf.Num(Definition.ServiceLoadKnPerM2, 2)} кН/м²";
+            public override string ToString() => $"Klasse {Definition.Class} — {_nf.Num(Definition.ServiceLoadKnPerM2, 2)} kN/m²";
         }
     }
 }

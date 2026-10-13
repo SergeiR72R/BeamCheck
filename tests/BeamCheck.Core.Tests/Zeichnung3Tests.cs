@@ -83,7 +83,7 @@ namespace BeamCheck.Core.Tests
             foreach (var p in s.Result.Points) _out.WriteLine($"{p.Name} A={p.AreaM2:0.000} G={p.Gk:0.00} Q={p.Qk:0.00}");
 
             Assert.Single(s.Topology.Columns);
-            Assert.Contains(s.Result.Warnings, w => w.Contains("46 мм"));
+            Assert.Contains(s.Result.Warnings, w => w.Contains("46 mm"));
             // All 15 decks have at least one bearing on a ledger (the far ends of the 1200 decks lie on nothing).
             var used = all.Where(e => e.Kind == ElementKind.Deck && s.Topology.UsedElementIds.Contains(e.Id)).ToList();
             Assert.Equal(15, used.Count);
@@ -93,7 +93,7 @@ namespace BeamCheck.Core.Tests
         public void The_neighbourhood_summary_names_what_was_recognised_around_the_standard()
         {
             var (s, _, _) = Build(new BeamCheckSettings());
-            var line = s.Result.Warnings.Single(w => w.StartsWith("ℹ Вокруг стоек"));
+            var line = s.Result.Warnings.Single(w => w.StartsWith("ℹ Rund um die Ständer"));
             _out.WriteLine(line);
 
             Assert.Contains("Deck×15", line);
@@ -141,7 +141,7 @@ namespace BeamCheck.Core.Tests
             foreach (var w in s.Result.Warnings) _out.WriteLine(w);
 
             Assert.Equal(15, all.Count(e => e.Kind == ElementKind.Deck));
-            Assert.Contains(s.Result.Warnings, w => w.Contains("46 мм"));
+            Assert.Contains(s.Result.Warnings, w => w.Contains("46 mm"));
             Assert.Equal(15, all.Count(e => e.Kind == ElementKind.Deck && s.Topology.UsedElementIds.Contains(e.Id)));
         }
 
@@ -176,7 +176,7 @@ namespace BeamCheck.Core.Tests
                 new AnalysisInput { Beam = beam, SelectedStandards = new List<ScaffoldElement> { stand }, Candidates = all });
             foreach (var w in s.Result.Warnings) _out.WriteLine(w);
 
-            Assert.Contains(s.Result.Warnings, w => w.Contains("на 46 мм"));
+            Assert.Contains(s.Result.Warnings, w => w.Contains("um 46 mm"));
             Assert.Equal(3, all.Count(e => e.Kind == ElementKind.Deck && e.ZMax > 133950 && s.Topology.UsedElementIds.Contains(e.Id)));
         }
 

@@ -99,7 +99,7 @@ namespace BeamCheck.Cad
                 }
                 catch (System.Exception ex)
                 {
-                    info = cls + ": группа, разобрать не удалось (" + ex.Message + ")";
+                    info = cls + ": Gruppe, konnte nicht zerlegt werden (" + ex.Message + ")";
                     return list;
                 }
 
@@ -122,7 +122,7 @@ namespace BeamCheck.Cad
                 }
 
                 var stdsInGroup = list.Where(x => x.Kind == ElementKind.Standard).ToList();
-                info = cls + ": группа из " + parts.Count + " объектов → " + string.Join(", ", list.GroupBy(x => x.Kind).Select(g => g.Key + "×" + g.Count()));
+                info = cls + ": Gruppe aus " + parts.Count + " Objekten → " + string.Join(", ", list.GroupBy(x => x.Kind).Select(g => g.Key + "×" + g.Count()));
                 return stdsInGroup;
             }
 
@@ -131,7 +131,7 @@ namespace BeamCheck.Cad
             {
                 var asKind = Read(ent);
                 found = Read(ent, ElementKind.Standard);
-                info = cls + ": распознано как " + (asKind.Count == 0 ? "не определено" : asKind[0].Kind.ToString()) + ", принято как стойка по выбору пользователя";
+                info = cls + ": erkannt als " + (asKind.Count == 0 ? "nicht bestimmt" : asKind[0].Kind.ToString()) + ", auf Wunsch des Benutzers als Ständer übernommen";
             }
             else
             {

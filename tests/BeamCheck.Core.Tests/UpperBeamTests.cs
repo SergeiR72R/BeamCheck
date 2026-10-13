@@ -132,7 +132,7 @@ namespace BeamCheck.Core.Tests
             // The overhang stand loads S1 (1.125) and does not relieve S2: S2 gets no transfer, and nothing is subtracted.
             Assert.Equal(LoadCalculator.KgToKn(40 * 1.125), r.Points[0].TransferGk, 6);
             Assert.Equal(0, r.Points[1].TransferGk, 6);
-            Assert.Contains(s.Result.Warnings, w => w.Contains("разгрузка не учитывается"));
+            Assert.Contains(s.Result.Warnings, w => w.Contains("Entlastung wird nicht angesetzt"));
         }
 
         [Fact]
@@ -178,7 +178,7 @@ namespace BeamCheck.Core.Tests
             var s = new BeamLoadSession(Settings(), input);
 
             Assert.Single(s.Topology.UpperBeams);
-            Assert.Contains(s.Result.Warnings, w => w.Contains("опирается на 2 стоек") && w.Contains("на ней стоит 1 стоек"));
+            Assert.Contains(s.Result.Warnings, w => w.Contains("liegt auf 2 Ständern") && w.Contains("darauf stehen 1 Ständer"));
         }
 
         [Fact]

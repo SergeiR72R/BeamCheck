@@ -22,17 +22,17 @@ namespace BeamCheck.Core.Report
             var f = new NumberFormat(decimalSeparator);
             var t = new ResultTable
             {
-                Title = "Нагрузки на балку" + (string.IsNullOrEmpty(r.BeamName) ? "" : " " + r.BeamName)
-                        + ", L = " + f.Mm(r.BeamLength) + " мм",
+                Title = "Lasten auf den Träger" + (string.IsNullOrEmpty(r.BeamName) ? "" : " " + r.BeamName)
+                        + ", L = " + f.Mm(r.BeamLength) + " mm",
             };
 
             bool transfer = r.Points.Any(p => p.TransferFk > 0.005);
             bool design = r.ShowDesignValues;
-            t.Header.AddRange(new[] { "Стойка", "X, мм", "Площадь, м²", "Live load, кН", "Self weight, кН", "Total load, кН" });
+            t.Header.AddRange(new[] { "Ständer", "X, mm", "Fläche, m²", "Nutzlast, kN", "Eigengewicht, kN", "Gesamtlast, kN" });
             if (design)
-                t.Header.Add("Total Fd, кН");
+                t.Header.Add("Gesamtlast Fd, kN");
             if (transfer)
-                t.Header.Add("в т.ч. с верх. балок, кН");
+                t.Header.Add("davon aus oberen Trägern, kN");
             foreach (var p in r.Points)
             {
                 var row = new List<string>
@@ -61,19 +61,19 @@ namespace BeamCheck.Core.Report
             t.Rows.Add(sum);
 
             double loaded = r.Points.Sum(p => p.LoadedAreaM2);
-            t.Notes.Add("Summary: площадь (все ярусы до верха) = " + f.Num(area, 2) + " м², live load = " + f.Num(live, 2) + " кН, self weight load = "
-                        + f.Num(self, 2) + " кН, total load = " + f.Num(total, 2) + " кН");
-            t.Notes.Add("Класс нагрузки " + r.LoadClass + " (EN 12811-1): q = " + f.Num(r.ServiceLoad, 2) + " кН/м²");
+            t.Notes.Add("Zusammenfassung: Fläche (alle Ebenen bis oben) = " + f.Num(area, 2) + " m², Nutzlast = " + f.Num(live, 2) + " kN, Eigengewicht = "
+                        + f.Num(self, 2) + " kN, Gesamtlast = " + f.Num(total, 2) + " kN");
+            t.Notes.Add("Lastklasse " + r.LoadClass + " (EN 12811-1): q = " + f.Num(r.ServiceLoad, 2) + " kN/m²");
             var levelNotes = r.Points.SelectMany(p => p.Levels)
                 .Where(l => l.Factor > 0)
                 .GroupBy(l => l.Level.Index)
                 .OrderBy(g => g.Key)
-                .Select(g => "ярус " + g.Key + " (Z=" + f.Mm(g.First().Level.Z) + "): " + f.Num(g.First().Factor * 100, 0) + "%")
+                .Select(g => "Ebene " + g.Key + " (Z=" + f.Mm(g.First().Level.Z) + "): " + f.Num(g.First().Factor * 100, 0) + " %")
                 .ToList();
             if (levelNotes.Count > 0)
-                t.Notes.Add("Live load приложен на: " + string.Join("; ", levelNotes) + " (площадь под live load " + f.Num(loaded, 2)
-                            + " м²); на остальных ярусах 0 (работы ведутся на одном ярусе)");
-            t.Notes.Add("Total load = self weight + live load (нормативные); Fd = " + f.Num(r.GammaG, 2) + "·self weight + " + f.Num(r.GammaQ, 2) + "·live load; на схеме — " + (r.ShowDesignValues ? "Fd" : "total load"));
+                t.Notes.Add("Nutzlast angesetzt auf: " + string.Join("; ", levelNotes) + " (Fläche unter Nutzlast " + f.Num(loaded, 2)
+                            + " m²); auf den übrigen Ebenen 0 (gearbeitet wird jeweils auf einer Ebene)");
+            t.Notes.Add("Gesamtlast = Eigengewicht + Nutzlast (charakteristische Werte); Fd = " + f.Num(r.GammaG, 2) + "·Eigengewicht + " + f.Num(r.GammaQ, 2) + "·Nutzlast; im Schema: " + (r.ShowDesignValues ? "Fd" : "Gesamtlast"));
             return t;
         }
 
@@ -111,6 +111,6 @@ namespace BeamCheck.Core.Report
         public string Mm(double v) => v.ToString("0", _nfi);
 
         /// <summary>Load label for the drawing, e.g. "13,1 кН" (2 decimals below 10 kN, 1 above).</summary>
-        public string Kn(double v) => v.ToString(v < 10 ? "0.00" : "0.0", _nfi) + " кН";
+        public string Kn(double v) => v.ToString(v < 10 ? "0.00" : "0.0", _nfi) + " kN";
     }
 }

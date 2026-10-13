@@ -90,7 +90,7 @@ namespace BeamCheck.Core.Analysis
             }
 
             Reanalyze();
-            StatusMessage = "Исключено из расчёта объектов: " + n + ".";
+            StatusMessage = "Aus der Berechnung ausgeschlossene Objekte: " + n + ".";
         }
 
         /// <summary>Message about the last manual change (shown in the dialog).</summary>
@@ -120,9 +120,9 @@ namespace BeamCheck.Core.Analysis
             int used = list.Count(e => Topology.UsedElementIds.Contains(e.Id));
             var byKind = string.Join(", ", list.GroupBy(e => e.Kind).Select(g => g.Key + "×" + g.Count()));
             StatusMessage = list.Count == 0
-                ? "Ничего не добавлено."
-                : $"Добавлено в расчёт: {list.Count} ({byKind}); дают нагрузку на выбранные стойки: {used}." +
-                  (used < list.Count ? " Остальные не связаны с выбранными стойками (леджер не доходит до выбранной стойки)." : "");
+                ? "Nichts hinzugefügt."
+                : $"Zur Berechnung hinzugefügt: {list.Count} ({byKind}); belasten die gewählten Ständer: {used}." +
+                  (used < list.Count ? " Die übrigen stehen mit den gewählten Ständern nicht in Verbindung (der Riegel erreicht den gewählten Ständer nicht)." : "");
         }
 
         /// <summary>Area of each level summed over all selected standards, m².</summary>

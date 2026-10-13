@@ -25,7 +25,7 @@ namespace BeamCheck.Core.Tests
             Assert.Equal(new[] { "S1", "S2", "S3" }, r.Points.Select(p => p.Name));
             Assert.Equal(new[] { 1423.0, 2423.0, 3923.0 }, r.Points.Select(p => p.Position));
             Assert.Equal(new[] { 1423.0, 1000.0, 1500.0, 549.0 }, r.DimensionChain());
-            Assert.DoesNotContain(r.Warnings, w => w.Contains("не опирается"));
+            Assert.DoesNotContain(r.Warnings, w => w.Contains("steht nicht auf dem Träger"));
         }
 
         [Fact]
@@ -123,7 +123,7 @@ namespace BeamCheck.Core.Tests
             var inner = b.Elements.Where(e => e.Kind == Model.ElementKind.Standard && e.Start.Y > 500 && e.Start.X == 1423);
             var r = Run(b, AllLevels, input: b.Input(b.BeamRowStandards.Concat(inner)));
 
-            Assert.Contains(r.Warnings, w => w.Contains("не опирается"));
+            Assert.Contains(r.Warnings, w => w.Contains("steht nicht auf dem Träger"));
         }
 
         [Fact]
@@ -197,7 +197,7 @@ namespace BeamCheck.Core.Tests
             var s = new BeamLoadSession(new BeamCheckSettings(), b.Input());
 
             Assert.Empty(s.Topology.Columns);
-            Assert.Contains(s.Result.Warnings, w => w.Contains("выше верха балки"));
+            Assert.Contains(s.Result.Warnings, w => w.Contains("über der Trägeroberkante"));
         }
 
         [Fact]
@@ -208,7 +208,7 @@ namespace BeamCheck.Core.Tests
             var s = new BeamLoadSession(new BeamCheckSettings(), b.Input());
 
             Assert.Empty(s.Topology.Columns);
-            Assert.Contains(s.Result.Warnings, w => w.Contains("ниже верха балки"));
+            Assert.Contains(s.Result.Warnings, w => w.Contains("unter der Trägeroberkante"));
         }
     }
 }

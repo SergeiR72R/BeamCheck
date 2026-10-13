@@ -38,14 +38,14 @@ namespace BeamCheck.Core.Tests
         public void A_deck_resting_exactly_is_matched()
         {
             Assert.Equal(ExactArea, TotalArea(out var t), 6);
-            Assert.DoesNotContain(t.Warnings, w => w.Contains("без леджера"));
+            Assert.DoesNotContain(t.Warnings, w => w.Contains("ohne Riegel"));
         }
 
         [Fact]
         public void The_seat_height_is_learned_from_the_model_so_a_uniform_offset_is_fine()
         {
             Assert.Equal(ExactArea, TotalArea(out var t, raiseAll: 120), 6);
-            Assert.Contains(t.Warnings, w => w.Contains("Посадка деков") && w.Contains("180"));
+            Assert.Contains(t.Warnings, w => w.Contains("Belagsitz") && w.Contains("180"));
         }
 
         [Fact]
@@ -54,7 +54,7 @@ namespace BeamCheck.Core.Tests
             double a = TotalArea(out var t, oddDecks: 1, oddRaise: 80);
 
             Assert.True(a < ExactArea);
-            Assert.Contains(t.Warnings, w => w.Contains("без леджера") && w.Contains("+80"));
+            Assert.Contains(t.Warnings, w => w.Contains("ohne Riegel") && w.Contains("+80"));
         }
 
         [Fact]
@@ -70,14 +70,14 @@ namespace BeamCheck.Core.Tests
 
             double far = TotalArea(out var t, shiftX: 80);
             Assert.Equal(0, far, 9);
-            Assert.Contains(t.Warnings, w => w.Contains("без леджера под опорой") && w.Contains("80"));
+            Assert.Contains(t.Warnings, w => w.Contains("ohne Riegel unter dem Auflager") && w.Contains("80"));
         }
 
         [Fact]
         public void With_snapping_decks_that_miss_the_ledger_are_attached_to_the_nearest_one()
         {
             Assert.Equal(ExactArea, TotalArea(out var t, shiftX: 80, snap: true), 6);
-            Assert.Contains(t.Warnings, w => w.Contains("привязаны к ближайшему леджеру") && w.Contains("80"));
+            Assert.Contains(t.Warnings, w => w.Contains("dem nächsten Riegel zugeordnet") && w.Contains("80"));
         }
 
         [Fact]
@@ -107,8 +107,8 @@ namespace BeamCheck.Core.Tests
 
             Assert.True(s.Result.Points.Sum(p => p.AreaM2) > before);
             Assert.Contains(deck.Id, s.ManualIds);
-            Assert.Contains("Добавлено в расчёт: 1", s.StatusMessage);
-            Assert.Contains("дают нагрузку на выбранные стойки: 1", s.StatusMessage);
+            Assert.Contains("Zur Berechnung hinzugefügt: 1", s.StatusMessage);
+            Assert.Contains("belasten die gewählten Ständer: 1", s.StatusMessage);
         }
     }
 }

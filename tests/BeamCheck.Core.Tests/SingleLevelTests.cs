@@ -61,17 +61,17 @@ namespace BeamCheck.Core.Tests
             var s = ThreeLevels();
             var t = ResultTable.Build(s.Result, ",");
 
-            Assert.Equal(new[] { "Стойка", "X, мм", "Площадь, м²", "Live load, кН", "Self weight, кН", "Total load, кН" }, t.Header.Take(6));
+            Assert.Equal(new[] { "Ständer", "X, mm", "Fläche, m²", "Nutzlast, kN", "Eigengewicht, kN", "Gesamtlast, kN" }, t.Header.Take(6));
             var sum = t.Rows.Last();
             Assert.Equal("Σ", sum[0]);
-            Assert.Contains(t.Notes, n => n.StartsWith("Summary: площадь (все ярусы до верха) = ") && n.Contains("live load = ") && n.Contains("self weight load = ") && n.Contains("total load = "));
+            Assert.Contains(t.Notes, n => n.StartsWith("Zusammenfassung: Fläche (alle Ebenen bis oben) = ") && n.Contains("Nutzlast = ") && n.Contains("Eigengewicht = ") && n.Contains("Gesamtlast = "));
 
             var r = s.Result;
             string live = new NumberFormat(",").Num(r.Points.Sum(p => p.Qk), 2);
             string self = new NumberFormat(",").Num(r.Points.Sum(p => p.Gk), 2);
             string total = new NumberFormat(",").Num(r.Points.Sum(p => p.Fk), 2);
             Assert.Equal(new[] { live, self, total }, new[] { sum[3], sum[4], sum[5] });
-            Assert.DoesNotContain("Total Fd, кН", t.Header);
+            Assert.DoesNotContain("Gesamtlast Fd, kN", t.Header);
         }
 
         [Fact]
@@ -81,7 +81,7 @@ namespace BeamCheck.Core.Tests
             s.Options.ShowDesignValues = true;
             s.Recalculate();
 
-            Assert.Contains("Total Fd, кН", ResultTable.Build(s.Result, ",").Header);
+            Assert.Contains("Gesamtlast Fd, kN", ResultTable.Build(s.Result, ",").Header);
         }
     }
 }

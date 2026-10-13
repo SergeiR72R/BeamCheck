@@ -15,7 +15,7 @@ New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 Start-Transcript -Path (Join-Path $logDir "install.log") -Force | Out-Null
 try {
     $bundle = Join-Path $PSScriptRoot "BeamCheck.bundle"
-    if (-not (Test-Path $bundle)) { throw "Папка BeamCheck.bundle не найдена рядом с install.ps1 ($PSScriptRoot). Распакуйте архив целиком." }
+    if (-not (Test-Path $bundle)) { throw "Ordner BeamCheck.bundle neben install.ps1 nicht gefunden ($PSScriptRoot). Archiv bitte vollständig entpacken." }
     Get-ChildItem $bundle -Recurse -File | Unblock-File
 
     # --- AutoCAD-based PERI CAD ---
@@ -26,7 +26,7 @@ try {
         if (Test-Path $target) { Remove-Item $target -Recurse -Force }
         Copy-Item $bundle $target -Recurse
         Get-ChildItem $target -Recurse -File | Unblock-File
-        Write-Host "AutoCAD: пакет скопирован в $target"
+        Write-Host "AutoCAD: Paket kopiert nach $target"
 
         $base = "HKCU:\Software\Autodesk\AutoCAD"
         $registered = 0
@@ -36,7 +36,7 @@ try {
                 $major = [int]$Matches[1]
                 $dir = if ($major -ge 25) { "net8" } else { "net48" }
                 $dll = Join-Path $target "Contents\Acad\$dir\BeamCheck.Acad.dll"
-                if (-not (Test-Path $dll)) { Write-Warning "$($rel.PSChildName): нет $dll"; continue }
+                if (-not (Test-Path $dll)) { Write-Warning "$($rel.PSChildName): $dll fehlt"; continue }
                 foreach ($product in Get-ChildItem $rel.PSPath) {
                     if ($product.PSChildName -notmatch '^ACAD-') { continue }
                     $key = Join-Path $product.PSPath "Applications\BeamCheck"
@@ -45,12 +45,12 @@ try {
                     New-ItemProperty -Path $key -Name "LOADCTRLS" -Value 2 -PropertyType DWord -Force | Out-Null
                     New-ItemProperty -Path $key -Name "LOADER" -Value $dll -PropertyType String -Force | Out-Null
                     New-ItemProperty -Path $key -Name "MANAGED" -Value 1 -PropertyType DWord -Force | Out-Null
-                    Write-Host "AutoCAD $($rel.PSChildName)\$($product.PSChildName): автозагрузка $dll"
+                    Write-Host "AutoCAD $($rel.PSChildName)\$($product.PSChildName): Autoload $dll"
                     $registered++
                 }
             }
         }
-        if ($registered -eq 0) { Write-Warning "Профили AutoCAD в реестре не найдены: модуль загрузится только через автозагрузчик bundle или NETLOAD." }
+        if ($registered -eq 0) { Write-Warning "AutoCAD-Profile in der Registry nicht gefunden: das Modul wird nur über den Bundle-Autoloader oder NETLOAD geladen." }
     }
 
     # --- BricsCAD-based PERI CAD 25/26 ---
@@ -73,18 +73,18 @@ try {
                     New-ItemProperty -Path $key -Name "LOADCTRLS" -Value 2 -PropertyType DWord -Force | Out-Null
                     New-ItemProperty -Path $key -Name "MANAGED" -Value 1 -PropertyType DWord -Force | Out-Null
                     New-ItemProperty -Path $key -Name "DESCRIPTION" -Value "BeamCheck" -PropertyType String -Force | Out-Null
-                    Write-Host "BricsCAD $($ver.PSChildName)\$($profile.PSChildName): автозагрузка $dll"
+                    Write-Host "BricsCAD $($ver.PSChildName)\$($profile.PSChildName): Autoload $dll"
                 }
             }
         }
     }
 
     Write-Host ""
-    Write-Host "Готово. Перезапустите PERI CAD: в командной строке должно появиться 'BeamCheck загружен'." -ForegroundColor Green
+    Write-Host "Fertig. PERI CAD neu starten: in der Befehlszeile muss erscheinen 'BeamCheck geladen'." -ForegroundColor Green
 }
 catch {
     Write-Host ""
-    Write-Host "ОШИБКА: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host "FEHLER: $($_.Exception.Message)" -ForegroundColor Red
 }
 finally {
     Stop-Transcript | Out-Null

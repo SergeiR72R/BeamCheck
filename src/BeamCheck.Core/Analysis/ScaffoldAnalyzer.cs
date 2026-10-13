@@ -83,7 +83,7 @@ namespace BeamCheck.Core.Analysis
             BuildColumns(topo, input.SelectedStandards.Where(Active).ToList(), standards);
             if (topo.Columns.Count == 0)
             {
-                topo.Warnings.Add("Не найдено ни одной стойки над балкой.");
+                topo.Warnings.Add("Über dem Träger wurde kein Ständer gefunden.");
                 return topo;
             }
 
@@ -141,7 +141,7 @@ namespace BeamCheck.Core.Analysis
             topo.Columns.AddRange(contacts);
             if (contacts.Count > 0)
                 topo.Warnings.Add(string.Format(CultureInfo.InvariantCulture,
-                    "ℹ Деки, лежащие прямо на проверяемом элементе: {0} опор (точки D1…D{0}), по половине веса и полезной нагрузки дека на каждую.", contacts.Count));
+                    "ℹ Beläge, die direkt auf dem geprüften Element liegen: {0} Auflager (Punkte D1…D{0}), je mit der Hälfte von Gewicht und Nutzlast des Belags.", contacts.Count));
         }
 
         /// <summary>What was recognised around the columns (≤ 3 m): kinds with a few part names, to spot misrecognition.</summary>
@@ -151,7 +151,7 @@ namespace BeamCheck.Core.Analysis
                 Vec3.DistanceXY(c.Axis, (e.Start + e.End) / 2) <= 3000 && e.ZMax >= c.ZBottom - 300 && e.ZMin <= c.ZTop + 300)).ToList();
             var groups = near.GroupBy(e => e.Kind).OrderBy(g => g.Key.ToString())
                 .Select(g => g.Key + "×" + g.Count() + " (" + string.Join(", ", g.Select(x => x.DisplayName).Distinct().Take(3)) + ")");
-            return "ℹ Вокруг стоек (≤3 м) распознано: " + (near.Count == 0 ? "ничего" : string.Join("; ", groups)) + ".";
+            return "ℹ Rund um die Ständer (≤3 m) erkannt: " + (near.Count == 0 ? "nichts" : string.Join("; ", groups)) + ".";
         }
 
         private static bool IsSameBeam(ScaffoldElement a, ScaffoldElement b) =>
@@ -298,13 +298,13 @@ namespace BeamCheck.Core.Analysis
                     topo.UsedElementIds.Add(u.Id);
                     topo.Warnings.Add(string.Format(CultureInfo.InvariantCulture,
                         u.Kind == ElementKind.Console
-                            ? "ℹ Консоль {0} закреплена на стойке, на ней стоит {3} стоек — вся её нагрузка идёт в эту стойку."
-                            : "ℹ Балка {0} опирается на {1} стоек ({2} из выбранных), на ней стоит {3} стоек — их нагрузка передана на выбранные стойки.",
+                            ? "ℹ Konsole {0} ist an einem Ständer befestigt, darauf stehen {3} Ständer — ihre gesamte Last geht in diesen Ständer."
+                            : "ℹ Träger {0} liegt auf {1} Ständern ({2} davon gewählt), darauf stehen {3} Ständer — deren Last wird auf die gewählten Ständer übertragen.",
                         u.DisplayName, link.Supports.Count, link.Supports.Count(x => x.Column != null), link.Loaded.Count));
                     if (link.Loaded.Count == 0 && u.Kind != ElementKind.Console)
-                        topo.Warnings.Add("ℹ На балке " + u.DisplayName + " стоек не найдено, учтён только её вес.");
+                        topo.Warnings.Add("ℹ Auf dem Träger " + u.DisplayName + " wurden keine Ständer gefunden, nur sein Eigengewicht wird berücksichtigt.");
                     if (u.WeightKg <= 0)
-                        topo.Warnings.Add("Вес " + (u.Kind == ElementKind.Console ? "консоли " : "балки ") + u.DisplayName + " неизвестен (0 кг) — добавьте артикул в BeamCheck.weights.csv.");
+                        topo.Warnings.Add("Gewicht " + (u.Kind == ElementKind.Console ? "der Konsole " : "des Trägers ") + u.DisplayName + " unbekannt (0 kg) — Artikel in BeamCheck.weights.csv ergänzen.");
                 }
 
                 if (!progress)
@@ -382,7 +382,7 @@ namespace BeamCheck.Core.Analysis
             }
 
             if (clamped && _upliftWarned.Add(beam.Id))
-                topo.Warnings.Add("ℹ Балка " + beam.DisplayName + ": нагрузка на консоли разгружает дальнюю опору — разгрузка не учитывается (запас). Включается в настройках: UpperBeamAllowUplift.");
+                topo.Warnings.Add("ℹ Träger " + beam.DisplayName + ": Last auf dem Kragarm entlastet das weiter entfernte Auflager — die Entlastung wird nicht angesetzt (auf der sicheren Seite). Einschalten in den Einstellungen: UpperBeamAllowUplift.");
             return f;
         }
 
@@ -527,9 +527,9 @@ namespace BeamCheck.Core.Analysis
                 {
                     var here = standards.Where(st => Vec3.DistanceXY(st.Start, seed) <= tol).ToList();
                     topo.Warnings.Add(here.Count == 0
-                        ? string.Format(CultureInfo.InvariantCulture, "Стойка в точке ({0:0}; {1:0}): секции не найдены среди распознанных элементов.", seed.X, seed.Y)
+                        ? string.Format(CultureInfo.InvariantCulture, "Ständer im Punkt ({0:0}; {1:0}): keine Abschnitte unter den erkannten Elementen gefunden.", seed.X, seed.Y)
                         : string.Format(CultureInfo.InvariantCulture,
-                            "Стойка в точке ({0:0}; {1:0}) целиком ниже верха балки: Z {2:0}..{3:0} мм, верх балки {4:0} мм — проверьте, какую балку выбрали.",
+                            "Ständer im Punkt ({0:0}; {1:0}) liegt ganz unter der Trägeroberkante: Z {2:0}..{3:0} mm, Trägeroberkante {4:0} mm — prüfen, welcher Träger gewählt wurde.",
                             seed.X, seed.Y, here.Min(h => h.ZMin), here.Max(h => h.ZMax), beamTop));
                     continue;
                 }
@@ -540,7 +540,7 @@ namespace BeamCheck.Core.Analysis
                 if (col.Sections.Count == 0)
                 {
                     topo.Warnings.Add(string.Format(CultureInfo.InvariantCulture,
-                        "Стойка в точке ({0:0}; {1:0}): низ стойки на {2:0} мм выше верха балки (допуск {3:0} мм) — стойка не опирается на балку.",
+                        "Ständer im Punkt ({0:0}; {1:0}): Ständerfuß {2:0} mm über der Trägeroberkante (Toleranz {3:0} mm) — der Ständer steht nicht auf dem Träger.",
                         seed.X, seed.Y, lowest - beamTop, _s.ColumnOnBeamZTolerance));
                     continue;
                 }
@@ -570,7 +570,7 @@ namespace BeamCheck.Core.Analysis
                 if (!c.OnBeam)
                 {
                     topo.Warnings.Add(string.Format(CultureInfo.InvariantCulture,
-                        "{0}: стойка не опирается на балку (смещение от оси {1:0} мм, низ стойки на {2:0} мм выше верха балки) — проверьте выбор.",
+                        "{0}: Ständer steht nicht auf dem Träger (Abstand von der Achse {1:0} mm, Ständerfuß {2:0} mm über der Trägeroberkante) — Auswahl prüfen.",
                         c.Name, c.OffsetFromBeamAxis, c.ZBottom - beamTop));
                 }
             }
@@ -740,7 +740,7 @@ namespace BeamCheck.Core.Analysis
             double seat = CalibrateDeckSeat(decks, ledgers);
             if (decks.Count > 0)
                 topo.Warnings.Add(string.Format(CultureInfo.InvariantCulture,
-                    "ℹ Посадка деков: верх дека выше верха леджера на {0:0} мм (допуск ±{1:0} мм по высоте, ≤{2:0} мм в плане).",
+                    "ℹ Belagsitz: Oberkante Belag über Oberkante Riegel um {0:0} mm (Toleranz ±{1:0} mm in der Höhe, ≤{2:0} mm im Grundriss).",
                     seat, _s.DeckHeightTolerance, _s.DeckBearingTolerance));
 
             foreach (var deck in decks)
@@ -806,12 +806,12 @@ namespace BeamCheck.Core.Analysis
 
             if (snapped > 0)
                 topo.Warnings.Add(string.Format(CultureInfo.InvariantCulture,
-                    "ℹ {0} опор деков не лежат на леджере (допуск {1:0} мм), привязаны к ближайшему леджеру — отклонение в плане до {2:0} мм.",
+                    "ℹ {0} Belagauflager liegen nicht auf einem Riegel (Toleranz {1:0} mm), sie wurden dem nächsten Riegel zugeordnet — Abweichung im Grundriss bis {2:0} mm.",
                     snapped, _s.DeckBearingTolerance, maxSnap));
             if (nearMissing + halfSupported > 0)
             {
                 topo.Warnings.Add(string.Format(CultureInfo.InvariantCulture,
-                    "Деки рядом со стойками без леджера под опорой: {0} без опор, {1} с одной опорой — нагрузка с них учтена частично или не учтена. Примеры (до ближайшего леджера: в плане / по высоте от нормальной посадки): {2}.",
+                    "Beläge neben den Ständern ohne Riegel unter dem Auflager: {0} ohne Auflager, {1} mit einem Auflager — ihre Last wird nur teilweise oder gar nicht angesetzt. Beispiele (bis zum nächsten Riegel: im Grundriss / in der Höhe gegenüber dem normalen Sitz): {2}.",
                     nearMissing, halfSupported, string.Join("; ", samples)));
             }
 
@@ -844,8 +844,8 @@ namespace BeamCheck.Core.Analysis
                 }
 
                 parts.Add(best == null
-                    ? "леджера нет"
-                    : string.Format(CultureInfo.InvariantCulture, "{0:0} / {1:+0;-0;0} мм", bestPlan, deck.ZMax - best.ZMax - seat));
+                    ? "kein Riegel"
+                    : string.Format(CultureInfo.InvariantCulture, "{0:0} / {1:+0;-0;0} mm", bestPlan, deck.ZMax - best.ZMax - seat));
             }
 
             return deck.DisplayName + " Z=" + deck.ZMin.ToString("0", CultureInfo.InvariantCulture) + " [" + string.Join(" | ", parts) + "]";

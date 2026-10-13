@@ -49,26 +49,26 @@ namespace BeamCheck.Cad
             }
             catch (System.Exception ex)
             {
-                ed.WriteMessage("\nОшибка чтения настроек BeamCheck: " + ex.Message);
+                ed.WriteMessage("\nFehler beim Lesen der BeamCheck-Einstellungen: " + ex.Message);
                 return;
             }
 
             var classifier = new ElementClassifier(settings);
             double toMm = CadUnits.ToMm(db, settings);
 
-            var peo = new PromptEntityOptions("\nВыберите балку или леджер: ");
+            var peo = new PromptEntityOptions("\nTräger oder Riegel wählen: ");
             var per = ed.GetEntity(peo);
             if (per.Status != PromptStatus.OK)
                 return;
 
-            var pso = new PromptSelectionOptions { MessageForAdding = "\nВыберите стойки над балкой (достаточно любой секции каждой стойки): " };
+            var pso = new PromptSelectionOptions { MessageForAdding = "\nStänder über dem Träger wählen (ein beliebiger Abschnitt je Ständer genügt): " };
             var psr = ed.GetSelection(pso);
             if (psr.Status != PromptStatus.OK)
                 return;
 
             var upperPrompt = new PromptSelectionOptions
             {
-                MessageForAdding = "\nВыберите вышестоящие балки, которые опираются на эти стойки и несут другие стойки (Enter — не выбирать, найти автоматически): ",
+                MessageForAdding = "\nObere Träger wählen, die auf diesen Ständern aufliegen und weitere Ständer tragen (Enter — nicht wählen, automatisch suchen): ",
             };
             var upperRes = ed.GetSelection(upperPrompt);
             var upperSel = upperRes.Status == PromptStatus.OK ? upperRes.Value.GetObjectIds() : null;
@@ -82,7 +82,7 @@ namespace BeamCheck.Cad
                 var beam = reader.Read(beamEnt, ElementKind.Beam).FirstOrDefault();
                 if (beam == null)
                 {
-                    ed.WriteMessage("\nНе удалось определить геометрию балки.");
+                    ed.WriteMessage("\nDie Geometrie des Trägers konnte nicht ermittelt werden.");
                     return;
                 }
 
@@ -90,10 +90,10 @@ namespace BeamCheck.Cad
                 var natural = reader.Read(beamEnt, null).FirstOrDefault();
                 bool isLedger = natural != null && natural.Kind == ElementKind.Ledger;
                 ed.WriteMessage(string.Format(CultureInfo.InvariantCulture,
-                    "\n{6}: {0}  ось {1} → {2}  L={3:0} мм  ширина {4:0}  верх Z={5:0}",
-                    beam.DisplayName, beam.Start, beam.End, beam.PlanLength, beam.Width, beam.ZMax, isLedger ? "Леджер" : "Балка"));
+                    "\n{6}: {0}  Achse {1} → {2}  L={3:0} mm  Breite {4:0}  Oberkante Z={5:0}",
+                    beam.DisplayName, beam.Start, beam.End, beam.PlanLength, beam.Width, beam.ZMax, isLedger ? "Riegel" : "Träger"));
                 if (isLedger)
-                    ed.WriteMessage("\n  определён как леджер: деки, лежащие на нём, учитываются отдельными точками D1…");
+                    ed.WriteMessage("\n  als Riegel erkannt: Beläge, die darauf liegen, werden als einzelne Punkte D1… berücksichtigt.");
 
                 var selected = new List<ScaffoldElement>();
                 int shown = 0;
@@ -102,14 +102,14 @@ namespace BeamCheck.Cad
                     var ent = (Entity)tr.GetObject(so.ObjectId, OpenMode.ForRead);
                     var found = reader.ReadPickedStandards(ent, out string info);
                     if (shown++ < 15)
-                        ed.WriteMessage("\n  выбрано " + ent.Handle + " " + info + " → стоек: " + found.Count +
+                        ed.WriteMessage("\n  gewählt " + ent.Handle + " " + info + " → Ständer: " + found.Count +
                                         string.Concat(found.Take(3).Select(f => string.Format(CultureInfo.InvariantCulture, "  [X={0:0} Y={1:0} Z {2:0}..{3:0}]", f.Start.X, f.Start.Y, f.ZMin, f.ZMax))));
                     selected.AddRange(found);
                 }
 
                 if (selected.Count == 0)
                 {
-                    ed.WriteMessage("\nСтойки не выбраны.");
+                    ed.WriteMessage("\nKeine Ständer gewählt.");
                     return;
                 }
 
@@ -129,10 +129,10 @@ namespace BeamCheck.Cad
                 foreach (var mb in manualBeams)
                     if (candidates.All(c => c.Id != mb.Id))
                         candidates.Add(mb);
-                ed.WriteMessage($"\nНайдено элементов вокруг стоек: {candidates.Count} " +
-                                $"(стоек {candidates.Count(c => c.Kind == ElementKind.Standard)}, " +
-                                $"леджеров {candidates.Count(c => c.Kind == ElementKind.Ledger)}, " +
-                                $"деков {candidates.Count(c => c.Kind == ElementKind.Deck)}).");
+                ed.WriteMessage($"\nElemente rund um die Ständer gefunden: {candidates.Count} " +
+                                $"(Ständer {candidates.Count(c => c.Kind == ElementKind.Standard)}, " +
+                                $"Riegel {candidates.Count(c => c.Kind == ElementKind.Ledger)}, " +
+                                $"Beläge {candidates.Count(c => c.Kind == ElementKind.Deck)}).");
 
                 session = new BeamLoadSession(settings, new AnalysisInput
                 {
@@ -143,7 +143,7 @@ namespace BeamCheck.Cad
                 });
                 if (isLedger)
                 {
-                    session.Options.BeamName = "Леджер " + beam.DisplayName;
+                    session.Options.BeamName = "Riegel " + beam.DisplayName;
                     session.Recalculate();
                 }
                 foreach (var kv in reader.TopLevelIds)
@@ -195,20 +195,18 @@ namespace BeamCheck.Cad
                 {
                     case FormAction.Highlight:
                         var ids = session.Topology.UsedElementIds.Concat(session.ManualIds).Where(idMap.ContainsKey).Select(i => idMap[i]).Distinct().ToList();
-                        Highlight(db, ids, true);
-                        ed.GetString(new PromptStringOptions($"\nПодсвечено учтённых объектов: {ids.Count}. Enter — вернуться в диалог: ") { AllowSpaces = true });
-                        Highlight(db, ids, false);
+                        ShowInModel(doc, ids);
                         break;
 
                     case FormAction.Exclude:
                     {
-                        var res = ed.GetSelection(new PromptSelectionOptions { MessageForAdding = "\nВыберите объекты, которые НЕ учитывать: " });
+                        var res = ed.GetSelection(new PromptSelectionOptions { MessageForAdding = "\nObjekte wählen, die NICHT berücksichtigt werden sollen: " });
                         if (res.Status != PromptStatus.OK)
                             break;
                         var picked = new HashSet<ObjectId>(res.Value.GetObjectIds());
                         var excluded = idMap.Where(kv => picked.Contains(kv.Value)).Select(kv => kv.Key).ToList();
                         session.Exclude(excluded);
-                        ed.WriteMessage($"\nИсключено элементов: {excluded.Count}.");
+                        ed.WriteMessage($"\nElemente ausgeschlossen: {excluded.Count}.");
                         break;
                     }
 
@@ -217,24 +215,139 @@ namespace BeamCheck.Cad
                         break;
 
                     case FormAction.Insert:
-                        var pr = ed.GetPoint("\nТочка вставки схемы и таблицы: ");
+                        EndIsolation(ed);
+                        var pr = ed.GetPoint("\nEinfügepunkt für Schema und Tabelle: ");
                         if (pr.Status != PromptStatus.OK)
                             break;
                         var wcs = pr.Value.TransformBy(ed.CurrentUserCoordinateSystem);
                         ResultDrawer.Draw(db, session.Result, session.Settings, wcs, toMm);
-                        ed.WriteMessage("\nСхема нагрузок и таблица вставлены.");
+                        ed.WriteMessage("\nLastschema und Tabelle eingefügt.");
                         return;
 
                     default:
+                        EndIsolation(ed);
                         return;
                 }
             }
         }
 
+        private static bool s_isolated;
+
+        /// <summary>
+        /// Shows the objects that entered the calculation: highlighted, with the camera free to orbit, pan and zoom, and
+        /// optionally isolated (everything else hidden) until "Alles zeigen". Returns when the user continues.
+        /// </summary>
+        private static void ShowInModel(Document doc, List<ObjectId> ids)
+        {
+            var ed = doc.Editor;
+            var db = doc.Database;
+            if (ids.Count == 0)
+            {
+                ed.WriteMessage("\nKeine berücksichtigten Objekte zum Anzeigen.");
+                return;
+            }
+
+            while (true)
+            {
+                Highlight(db, ids, true);
+                var kwo = new PromptKeywordOptions("\n" + ids.Count + " berücksichtigte Objekte markiert. Option [Drehen/Isolieren/Alles zeigen/Zoom/Weiter] <Weiter>: ") { AllowNone = true };
+                kwo.Keywords.Add("Orbit", "Drehen", "Drehen");
+                kwo.Keywords.Add("Isolate", "Isolieren", "Isolieren");
+                kwo.Keywords.Add("Show", "Alles", "Alles zeigen");
+                kwo.Keywords.Add("Zoom", "Zoom", "Zoom");
+                kwo.Keywords.Add("Continue", "Weiter", "Weiter");
+                kwo.Keywords.Default = "Continue";
+                var res = ed.GetKeywords(kwo);
+                Highlight(db, ids, false);
+                if (res.Status != PromptStatus.OK || res.StringResult == "Continue")
+                    return;
+
+                try
+                {
+                    switch (res.StringResult)
+                    {
+                        case "Orbit":
+                            // The objects stay selected while the view is turned (Enter or Esc ends the orbit).
+                            ed.SetImpliedSelection(ids.ToArray());
+                            ed.Command("_.3DORBIT");
+                            ed.SetImpliedSelection(new ObjectId[0]);
+                            break;
+
+                        case "Isolate":
+                            ed.SetImpliedSelection(ids.ToArray());
+                            ed.Command("_.ISOLATEOBJECTS");
+                            s_isolated = true;
+                            break;
+
+                        case "Show":
+                            EndIsolation(ed);
+                            break;
+
+                        case "Zoom":
+                            ZoomTo(ed, db, ids);
+                            break;
+                    }
+                }
+                catch (System.Exception ex)
+                {
+                    ed.WriteMessage("\nDer Befehl konnte nicht ausgeführt werden: " + ex.Message);
+                }
+            }
+        }
+
+        /// <summary>Brings the hidden objects back after an isolation (also before the scheme is inserted).</summary>
+        private static void EndIsolation(Editor ed)
+        {
+            if (!s_isolated)
+                return;
+            try
+            {
+                ed.Command("_.UNISOLATEOBJECTS");
+            }
+            catch (System.Exception ex)
+            {
+                ed.WriteMessage("\nUNISOLATEOBJECTS fehlgeschlagen: " + ex.Message);
+            }
+
+            s_isolated = false;
+        }
+
+        private static void ZoomTo(Editor ed, Database db, List<ObjectId> ids)
+        {
+            bool any = false;
+            var ext = new Extents3d();
+            using (var tr = db.TransactionManager.StartTransaction())
+            {
+                foreach (var id in ids)
+                {
+                    if (id.IsErased || !(tr.GetObject(id, OpenMode.ForRead) is Entity ent))
+                        continue;
+                    try
+                    {
+                        ext.AddExtents(ent.GeometricExtents);
+                        any = true;
+                    }
+                    catch (System.Exception)
+                    {
+                        // An object without extents does not take part in the zoom.
+                    }
+                }
+
+                tr.Commit();
+            }
+
+            if (!any)
+                return;
+            var inv = ed.CurrentUserCoordinateSystem.Inverse();
+            var a = ext.MinPoint.TransformBy(inv);
+            var b = ext.MaxPoint.TransformBy(inv);
+            ed.Command("_.ZOOM", "_W", a, b);
+        }
+
         private static void AddObjects(Document doc, BeamLoadSession session, ElementClassifier classifier, double toMm, Dictionary<string, ObjectId> idMap)
         {
             var ed = doc.Editor;
-            var kwo = new PromptKeywordOptions("\nКак учитывать добавляемые объекты [Дек/Леджер/Стойка/Консоль/Авто]: ", "Deck Ledger Standard Console Auto");
+            var kwo = new PromptKeywordOptions("\nWie sollen die hinzugefügten Objekte gewertet werden [Belag/Riegel/Ständer/Konsole/Auto]: ", "Deck Ledger Standard Console Auto");
             var kw = ed.GetKeywords(kwo);
             if (kw.Status != PromptStatus.OK)
                 return;
@@ -248,7 +361,7 @@ namespace BeamCheck.Cad
                 case "Console": kind = ElementKind.Console; break;
             }
 
-            var res = ed.GetSelection(new PromptSelectionOptions { MessageForAdding = "\nВыберите объекты для добавления в расчёт: " });
+            var res = ed.GetSelection(new PromptSelectionOptions { MessageForAdding = "\nObjekte zum Hinzufügen zur Berechnung wählen: " });
             if (res.Status != PromptStatus.OK)
                 return;
 
@@ -264,7 +377,7 @@ namespace BeamCheck.Cad
             }
 
             session.Add(added);
-            ed.WriteMessage("\n" + session.StatusMessage + " Расчёт обновлён — результат в диалоге.");
+            ed.WriteMessage("\n" + session.StatusMessage + " Berechnung aktualisiert — Ergebnis im Dialog.");
         }
 
         /// <summary>All recognised elements in model space within the search radius of the selected standards.</summary>
@@ -311,7 +424,7 @@ namespace BeamCheck.Cad
             }
 
             if (noExtents > 0)
-                CadApp.DocumentManager.MdiActiveDocument?.Editor.WriteMessage("\nОбъектов без габаритов (прочитаны без отбора по области): " + noExtents);
+                CadApp.DocumentManager.MdiActiveDocument?.Editor.WriteMessage("\nObjekte ohne Ausdehnung (ohne Bereichsfilter gelesen): " + noExtents);
             return result;
         }
 
@@ -344,13 +457,13 @@ namespace BeamCheck.Cad
             if (doc == null)
                 return;
             var ed = doc.Editor;
-            var res = ed.GetSelection(new PromptSelectionOptions { MessageForAdding = "\nВыберите объекты PERI для анализа (балка, стойка, леджер, дек): " });
+            var res = ed.GetSelection(new PromptSelectionOptions { MessageForAdding = "\nPERI-Objekte zur Analyse wählen (Träger, Ständer, Riegel, Belag): " });
             if (res.Status != PromptStatus.OK)
                 return;
 
             var settings = Plugin.LoadSettings(out _);
             string path = PeriDump.Write(doc, res.Value.GetObjectIds(), settings);
-            ed.WriteMessage($"\nОтчёт сохранён: {path}\nПришлите этот файл разработчику модуля для настройки распознавания.");
+            ed.WriteMessage($"\nBericht gespeichert: {path}\nBitte diese Datei an den Entwickler des Moduls senden, um die Erkennung anzupassen.");
             TryOpen(path);
         }
 
@@ -359,7 +472,7 @@ namespace BeamCheck.Cad
         {
             var ed = CadApp.DocumentManager.MdiActiveDocument?.Editor;
             Plugin.LoadSettings(out string path);
-            ed?.WriteMessage($"\nФайл настроек BeamCheck: {path}\nИзменения применяются при следующем запуске BEAMLOAD.");
+            ed?.WriteMessage($"\nBeamCheck-Einstellungsdatei: {path}\nÄnderungen gelten beim nächsten Start von BEAMLOAD.");
             TryOpen(path);
         }
 

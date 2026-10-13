@@ -98,8 +98,8 @@ namespace BeamCheck.Core.Report
             }
 
             double maxTail = arrowLen + Math.Max(0, rowRightEdge.Count - 1) * th * 2;
-            string title = (string.IsNullOrEmpty(r.BeamName) ? "Балка" : r.BeamName)
-                           + "   класс " + r.LoadClass + ", " + (r.ShowDesignValues ? "Fd" : "Fk");
+            string title = (string.IsNullOrEmpty(r.BeamName) ? "Träger" : r.BeamName)
+                           + "   Klasse " + r.LoadClass + ", " + (r.ShowDesignValues ? "Fd" : "Fk");
             s.Texts.Add(new SchemeText { X = 0, Y = maxTail + th * 2.5, Text = title, Height = th, Anchor = TextAnchor.BottomLeft });
 
             double yChain = -s.BeamHeight - th * 4;

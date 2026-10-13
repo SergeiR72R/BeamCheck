@@ -199,7 +199,7 @@ namespace BeamCheck.Core.Analysis
             };
             result.Warnings.AddRange(topo.Warnings);
             if (q <= 0)
-                result.Warnings.Add("Класс нагрузки " + o.LoadClass + " не найден в настройках — полезная нагрузка = 0.");
+                result.Warnings.Add("Lastklasse " + o.LoadClass + " in den Einstellungen nicht gefunden — Nutzlast = 0.");
 
             foreach (var col in topo.Columns)
             {
@@ -240,7 +240,7 @@ namespace BeamCheck.Core.Analysis
 
             result.Points.Sort((a, b) => a.Position.CompareTo(b.Position));
             if (result.Points.Any(p => p.HasEstimatedWeights))
-                result.Warnings.Add("Для части элементов вес не найден в данных чертежа — использованы значения по умолчанию из настроек.");
+                result.Warnings.Add("Für einen Teil der Elemente wurde kein Gewicht in den Zeichnungsdaten gefunden — Standardwerte aus den Einstellungen verwendet.");
             return result;
         }
     }

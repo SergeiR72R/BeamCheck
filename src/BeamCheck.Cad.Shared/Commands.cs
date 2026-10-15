@@ -27,7 +27,7 @@ using CadApp = Autodesk.AutoCAD.ApplicationServices.Application;
 
 namespace BeamCheck.Cad
 {
-    public sealed class Commands
+    public sealed partial class Commands
     {
         /// <summary>
         /// Main command: pick a beam, pick standards, review loads in the dialog,

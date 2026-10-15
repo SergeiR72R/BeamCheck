@@ -195,6 +195,27 @@ namespace BeamCheck.Core.Analysis
             return runs;
         }
 
+        /// <summary>
+        /// The stacks a beam rests on (under it, or around which it is set in a head): the stack and the position along the beam
+        /// (from its start), left to right, coincident ones merged. The same rule that carries the load of upper beams.
+        /// </summary>
+        public List<BeamSupport> FindSupports(ScaffoldElement beam, IEnumerable<ScaffoldElement> standards)
+        {
+            var link = new BeamLink { Beam = beam };
+            foreach (var run in BuildRuns(standards.Where(e => e.Kind == ElementKind.Standard).ToList()))
+            {
+                if (!(run.ZBottom < beam.ZMin - FootAllowance && beam.ZMin <= run.ZTop + _s.UpperBeamBearingTolerance))
+                    continue;
+                if (!OnBeamFootprint(beam, run.Axis, out double pos))
+                    continue;
+                link.Supports.Add(new BeamSupport { Column = run, Position = pos });
+            }
+
+            link.Supports.Sort((a, b) => a.Position.CompareTo(b.Position));
+            MergeCoincidentSupports(link);
+            return link.Supports;
+        }
+
         private bool OnBeamFootprint(ScaffoldElement beam, Vec3 p, out double position)
         {
             double t = PlanGeometry.ProjectXY(beam.Start, beam.End, p, out double offset);

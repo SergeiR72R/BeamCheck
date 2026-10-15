@@ -166,7 +166,7 @@ namespace BeamCheck.Cad
             }
         }
 
-        private static ObjectId EnsureLayer(Transaction tr, Database db, string name)
+        internal static ObjectId EnsureLayer(Transaction tr, Database db, string name)
         {
             var lt = (LayerTable)tr.GetObject(db.LayerTableId, OpenMode.ForRead);
             if (lt.Has(name))

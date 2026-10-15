@@ -199,8 +199,9 @@ namespace BeamCheck.Core.Analysis
         /// The stacks a beam rests on (under it, or around which it is set in a head): the stack and the position along the beam
         /// (from its start), left to right, coincident ones merged. The same rule that carries the load of upper beams.
         /// </summary>
-        public List<BeamSupport> FindSupports(ScaffoldElement beam, IEnumerable<ScaffoldElement> standards)
+        public List<BeamSupport> FindSupports(ScaffoldElement beam, IEnumerable<ScaffoldElement> standards, IEnumerable<ScaffoldElement> others = null)
         {
+            var otherList = others == null ? new List<ScaffoldElement>() : others.ToList();
             var link = new BeamLink { Beam = beam };
             foreach (var run in BuildRuns(standards.Where(e => e.Kind == ElementKind.Standard).ToList()))
             {
@@ -212,12 +213,51 @@ namespace BeamCheck.Core.Analysis
                 // Under the beam, not beside it: a stand next to the beam (with a console, say) does not carry it.
                 if (offset > beam.Width / 2 + _s.SupportPlanTolerance)
                     continue;
+                // A stack that hangs from the beam (its lower end is free) is not a support.
+                if (!StandsOnSomething(run, otherList))
+                    continue;
                 link.Supports.Add(new BeamSupport { Column = run, Position = pos, Offset = offset });
             }
 
             link.Supports.Sort((a, b) => a.Position.CompareTo(b.Position));
             MergeCoincidentSupports(link);
             return link.Supports;
+        }
+
+        /// <summary>
+        /// Whether the lower end of a stack stands on something: its lowest parts, or parts at its foot, include a spindle, jack, swivel
+        /// nut, base plate or pin. Stacks whose parts carry no article or name at all are not judged (true).
+        /// </summary>
+        private bool StandsOnSomething(Column run, List<ScaffoldElement> others)
+        {
+            if (string.IsNullOrEmpty(_s.SupportEndPartPattern))
+                return true;
+            var rx = new System.Text.RegularExpressions.Regex(_s.SupportEndPartPattern, System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+            var foot = new List<ScaffoldElement>();
+            foreach (var sec in run.Sections)
+                if (sec.ZMin <= run.ZBottom + 5)
+                    foot.Add(sec);
+            foreach (var o in others)
+            {
+                if (o.Kind == ElementKind.Standard || o.Kind == ElementKind.Deck || o.Kind == ElementKind.Beam)
+                    continue;
+                var mid = (o.Start + o.End) / 2;
+                if (Vec3.DistanceXY(mid, run.Axis) <= 60 && o.ZMin >= run.ZBottom - 150 && o.ZMin <= run.ZBottom + 300)
+                    foot.Add(o);
+            }
+
+            bool anyKnown = false;
+            foreach (var e in foot)
+            {
+                string text = (e.Article ?? "") + " " + (e.Description ?? "");
+                if (text.Trim().Length == 0)
+                    continue;
+                anyKnown = true;
+                if (rx.IsMatch(text))
+                    return true;
+            }
+
+            return !anyKnown;
         }
 
         private bool OnBeamFootprint(ScaffoldElement beam, Vec3 p, out double position)

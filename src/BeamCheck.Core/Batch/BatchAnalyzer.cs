@@ -215,7 +215,7 @@ namespace BeamCheck.Core.Batch
 
             var standards = all.Where(e => e.Kind == ElementKind.Standard).ToList();
             var analyzer = new ScaffoldAnalyzer(s);
-            var supports = analyzer.FindSupports(beam, standards);
+            var supports = analyzer.FindSupports(beam, standards, all);
 
             // Standards standing on the beam (their foot at its top). A stack that passes through the beam still loads it with
             // the part above: that load is listed with the support under it.

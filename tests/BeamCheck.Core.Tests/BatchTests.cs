@@ -288,5 +288,35 @@ namespace BeamCheck.Core.Tests
             Assert.Equal(300, support.Position, 0);
             Assert.DoesNotContain(r.Loads, l => l.Position > 800);
         }
+
+        [Fact]
+        public void A_stack_hanging_from_the_beam_is_not_a_support_unless_it_ends_with_a_spindle_jack_or_pin()
+        {
+            ScaffoldElement Std(string id, double x, double z0, double z1, string art, string name) => new ScaffoldElement
+            {
+                Id = id, Kind = ElementKind.Standard, Start = new Vec3(x, 0, z0), End = new Vec3(x, 0, z1), ZMin = z0, ZMax = z1, WeightKg = 8,
+                Article = art, Description = name,
+            };
+            var beam = new ScaffoldElement
+            {
+                Id = "BM", Kind = ElementKind.Beam, Description = "RCS 148", Start = new Vec3(0, 0, 3120), End = new Vec3(2000, 0, 3120),
+                Width = 82, ZMin = 3020, ZMax = 3220, WeightKg = 38,
+            };
+            var all = new List<ScaffoldElement>
+            {
+                beam,
+                // 300: stack ends at the ground with a jack (UJB 50) and a base plate: a support.
+                Std("J", 300, 0, 505, "100412", "UJB 50"), Std("A", 300, 505, 3100, "101306", "UVR 100"),
+                // 1200: a long standard hanging from the beam, its lower end is a plain standard: not a support.
+                Std("H", 1200, 1000, 3100, "101306", "UVR 100"),
+                // 1800: stack standing on a pin: a support.
+                new ScaffoldElement { Id = "Z", Kind = ElementKind.Accessory, Article = "130681", Description = "UH Zapfen", Start = new Vec3(1800, 0, 450), End = new Vec3(1800, 40, 450), ZMin = 400, ZMax = 700, WeightKg = 0.2 },
+                Std("P", 1800, 500, 3100, "101306", "UVR 100"),
+            };
+            var r = BatchAnalyzer.Run(all, new BeamCheckSettings(), new BatchOptions()).Single();
+            Assert.Equal(2, r.Supports.Count);
+            Assert.InRange(r.Supports[0].Position, 295, 305);
+            Assert.InRange(r.Supports[1].Position, 1795, 1805);
+        }
     }
 }

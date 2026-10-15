@@ -17,7 +17,7 @@ namespace BeamCheck.Core.Settings
         }
 
         /// <summary>Bumped when defaults change in a way old settings files must not keep.</summary>
-        public const int CurrentVersion = 20;
+        public const int CurrentVersion = 21;
 
         [DataMember(Order = 0)] public int SettingsVersion { get; set; }
 
@@ -267,7 +267,7 @@ namespace BeamCheck.Core.Settings
             UpperBeamBearingTolerance = 30;
             SupportPlanTolerance = 40;
             SupportEndPartPattern = @"(?i)(spindel|(?<![a-z])uva(?![a-z])|spindle|ujb|wirbelmutter|zapfen|fu(ß|ss)platte|fu(ß|ss)spindel|base ?plate|(?<!\d)(116761|116762|100480|100412|100409|100481|715198|019780|100159|130684|130681|136779)(?!\d))";
-            ConsoleLedgerTolerance = 100;
+            ConsoleLedgerTolerance = 10;
             SearchRadius = 5000;
 
             StandardKgPerM = 5.5;

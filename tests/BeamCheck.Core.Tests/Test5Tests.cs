@@ -76,7 +76,8 @@ namespace BeamCheck.Core.Tests
         [Fact]
         public void A_ledger_fixed_to_the_tip_of_a_console_passes_its_deck_and_own_weight_to_the_console_root()
         {
-            var s = new BeamCheckSettings();
+            // In this model the ledger starts 42 mm beyond the console tip, so the default of 10 mm is widened here.
+            var s = new BeamCheckSettings { ConsoleLedgerTolerance = 50 };
             var reports = BatchAnalyzer.Run(Load(s, "peri24_test5b.json.gz"), s, new BatchOptions());
             foreach (var r in reports)
             {

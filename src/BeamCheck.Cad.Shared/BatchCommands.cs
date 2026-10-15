@@ -236,7 +236,7 @@ namespace BeamCheck.Cad
                 if (text.Length > 0)
                 {
                     row = rows.FirstOrDefault(r => string.Equals(r.Name, text, StringComparison.OrdinalIgnoreCase))
-                          ?? rows.FirstOrDefault(r => string.Equals(r.Handle, text, StringComparison.OrdinalIgnoreCase));
+                          ?? rows.FirstOrDefault(r => r.Handle.Split('+').Any(h => string.Equals(h.Trim(), text, StringComparison.OrdinalIgnoreCase)));
                     if (row == null)
                     {
                         ed.WriteMessage("\nTräger „" + text + "“ nicht gefunden — die Liste wird geöffnet.");
@@ -260,20 +260,25 @@ namespace BeamCheck.Cad
                     row = rows[index];
                 }
 
-                ObjectId oid;
-                try
+                var found = new List<ObjectId>();
+                foreach (var h in row.Handle.Split('+'))
                 {
-                    oid = db.GetObjectId(false, new Handle(Convert.ToInt64(row.Handle, 16)), 0);
-                }
-                catch (System.Exception)
-                {
-                    oid = ObjectId.Null;
+                    try
+                    {
+                        var oid = db.GetObjectId(false, new Handle(Convert.ToInt64(h.Trim(), 16)), 0);
+                        if (!oid.IsNull && !oid.IsErased)
+                            found.Add(oid);
+                    }
+                    catch (System.Exception)
+                    {
+                        // A handle that no longer exists is skipped.
+                    }
                 }
 
-                if (oid.IsNull || oid.IsErased)
+                if (found.Count == 0)
                     ed.WriteMessage("\nDer Träger " + row.Name + " (Handle " + row.Handle + ") ist in der Zeichnung nicht mehr vorhanden.");
                 else
-                    ShowInModel(doc, new List<ObjectId> { oid });
+                    ShowInModel(doc, found);
                 text = "";
                 // After showing, the list opens again for the next beam (Enter/Esc in the list ends the command).
                 var again = ed.GetString(new PromptStringOptions("\nWeiterer Träger (Name/Handle, Enter = Liste, Esc = Ende): ") { AllowSpaces = false });
@@ -288,7 +293,7 @@ namespace BeamCheck.Cad
         private static List<BeamRow> ToRows(IEnumerable<BeamReport> reports) => reports.Select(r => new BeamRow
         {
             Name = r.Name,
-            Handle = r.Id,
+            Handle = string.Join("+", r.PartIds),
             Article = r.Article ?? "",
             Description = r.Description ?? "",
             Length = r.Length,

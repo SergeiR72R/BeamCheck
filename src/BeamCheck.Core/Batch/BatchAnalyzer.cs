@@ -51,6 +51,8 @@ namespace BeamCheck.Core.Batch
         public static List<BeamReport> Run(IList<ScaffoldElement> all, BeamCheckSettings settings, BatchOptions options,
             Action<BatchProgress> progress = null, Func<bool> cancelled = null)
         {
+            var parts = new Dictionary<string, List<string>>();
+            all = JoinBeams(all, parts, settings);
             var beams = FindBeams(all)
                 .OrderBy(b => Math.Round(b.ZMin / 50.0))
                 .ThenBy(b => Math.Min(b.Start.X, b.End.X))
@@ -63,11 +65,124 @@ namespace BeamCheck.Core.Batch
                     break;
                 string name = NamePrefix + (i + 1).ToString("000", CultureInfo.InvariantCulture);
                 progress?.Invoke(new BatchProgress { Done = i, Total = beams.Count, Current = name });
-                reports.Add(AnalyzeBeam(name, beams[i], all, settings, options));
+                var report = AnalyzeBeam(name, beams[i], all, settings, options);
+                if (parts.TryGetValue(beams[i].Id, out var ids))
+                {
+                    report.PartIds.AddRange(ids);
+                    foreach (var id in ids)
+                        report.Related.Add(id);
+                }
+                else
+                {
+                    report.PartIds.Add(beams[i].Id);
+                }
+
+                reports.Add(report);
             }
 
             progress?.Invoke(new BatchProgress { Done = reports.Count, Total = beams.Count, Current = null });
             return reports;
+        }
+
+        /// <summary>
+        /// Beams joined end to end by a connector (Kletterschienenverbinder) act as one rigid, longer beam: from the start of the first to
+        /// the end of the last, the gap for the connection included. Returns the elements with those beams replaced by the joined beam
+        /// and the connectors removed; <paramref name="parts"/> maps the joined beam's id to the ids of everything it is made of.
+        /// </summary>
+        public static List<ScaffoldElement> JoinBeams(IList<ScaffoldElement> all, Dictionary<string, List<string>> parts, BeamCheckSettings s)
+        {
+            var beams = all.Where(e => e.Kind == ElementKind.Beam && e.PlanLength > 1).ToList();
+            var connectors = all.Where(e => e.Kind == ElementKind.BeamConnector && e.PlanLength > 1).ToList();
+            if (connectors.Count == 0 || beams.Count < 2)
+                return all.ToList();
+
+            const double axisTol = 150, endTol = 200, zTol = 250;
+            // Union of the beams every connector touches.
+            var group = beams.ToDictionary(b => b.Id, b => b.Id);
+            string Find(string id)
+            {
+                while (group[id] != id)
+                    id = group[id];
+                return id;
+            }
+
+            var usedConnectors = new HashSet<string>();
+            var connectorOf = new Dictionary<string, List<ScaffoldElement>>();
+            foreach (var c in connectors)
+            {
+                var dir = (c.End - c.Start).PlanDirection();
+                var touched = new List<ScaffoldElement>();
+                foreach (var b in beams)
+                {
+                    var bd = (b.End - b.Start).PlanDirection();
+                    if (Math.Abs(bd.DotXY(dir)) < 0.98 || Math.Abs((b.ZMin + b.ZMax) / 2 - (c.ZMin + c.ZMax) / 2) > zTol + Math.Max(b.ZMax - b.ZMin, c.ZMax - c.ZMin) / 2)
+                        continue;
+                    // One end of the beam lies within the connector (along its axis), on its axis.
+                    foreach (var end in new[] { b.Start, b.End })
+                    {
+                        double t = PlanGeometry.ProjectXY(c.Start, c.End, end, out double off);
+                        double along = t * c.PlanLength;
+                        if (off <= axisTol && along >= -endTol && along <= c.PlanLength + endTol)
+                        {
+                            touched.Add(b);
+                            break;
+                        }
+                    }
+                }
+
+                if (touched.Count < 2)
+                    continue;
+                usedConnectors.Add(c.Id);
+                for (int i = 1; i < touched.Count; i++)
+                    group[Find(touched[i].Id)] = Find(touched[0].Id);
+                foreach (var b in touched)
+                {
+                    if (!connectorOf.TryGetValue(b.Id, out var list))
+                        connectorOf[b.Id] = list = new List<ScaffoldElement>();
+                    list.Add(c);
+                }
+            }
+
+            var result = new List<ScaffoldElement>();
+            var done = new HashSet<string>();
+            var joined = new HashSet<string>();
+            foreach (var g in beams.GroupBy(b => Find(b.Id)).Where(g => g.Count() > 1))
+            {
+                var members = g.ToList();
+                // The far ends of the group along its axis.
+                var dir = (members[0].End - members[0].Start).PlanDirection();
+                var ends = members.SelectMany(b => new[] { b.Start, b.End }).OrderBy(p => p.DotXY(dir)).ToList();
+                var first = members.OrderBy(b => Math.Min(b.Start.DotXY(dir), b.End.DotXY(dir))).First();
+                var conns = members.SelectMany(b => connectorOf.TryGetValue(b.Id, out var l) ? l : new List<ScaffoldElement>()).Distinct().ToList();
+                var merged = new ScaffoldElement
+                {
+                    Id = first.Id,
+                    Kind = ElementKind.Beam,
+                    Article = string.Join(" + ", members.Select(b => b.Article).Where(a => !string.IsNullOrEmpty(a)).Distinct()),
+                    Description = string.Join(" + ", members.OrderBy(b => Math.Min(b.Start.DotXY(dir), b.End.DotXY(dir))).Select(b => b.Description ?? b.Id)) + " (Verbinder)",
+                    Start = ends.First().WithZ((first.Start.Z + first.End.Z) / 2),
+                    End = ends.Last().WithZ((first.Start.Z + first.End.Z) / 2),
+                    Width = members.Max(b => b.Width),
+                    ZMin = members.Min(b => b.ZMin),
+                    ZMax = members.Max(b => b.ZMax),
+                    WeightKg = members.Sum(b => b.WeightKg) + conns.Sum(c => c.WeightKg),
+                };
+                result.Add(merged);
+                parts[merged.Id] = members.Select(b => b.Id).Concat(conns.Select(c => c.Id)).Distinct().ToList();
+                foreach (var b in members)
+                    joined.Add(b.Id);
+                foreach (var c in conns)
+                    done.Add(c.Id);
+            }
+
+            foreach (var e in all)
+            {
+                if (joined.Contains(e.Id) || done.Contains(e.Id))
+                    continue;
+                result.Add(e);
+            }
+
+            return result;
         }
 
         public static BeamReport AnalyzeBeam(string name, ScaffoldElement beam, IList<ScaffoldElement> all, BeamCheckSettings s, BatchOptions options)

@@ -1,5 +1,5 @@
 {
-  "SettingsVersion": 13,
+  "SettingsVersion": 14,
   "LoadClasses": [
     {
       "Class": 1,
@@ -61,6 +61,10 @@
   "Catalog": [ ],
   "BeamKgPerM": 27,
   "Rules": [
+    {
+      "Kind": "BeamConnector",
+      "Pattern": "(?i)(schienenverbinder|rail ?connector|соединител)"
+    },
     {
       "Kind": "Beam",
       "Pattern": "(?i)(gitterträger|gittertraeger|multiträger|multitraeger|träger|traeger|girder|балк|двутавр|(?<![A-Z0-9])(SRU|RCS|ULS|ULA|ELM|VT ?20|GT ?24|HEB|HEA|IPE|UPE)(?![A-Z]))"

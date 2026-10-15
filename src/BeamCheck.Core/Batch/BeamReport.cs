@@ -44,8 +44,11 @@ namespace BeamCheck.Core.Batch
     {
         public string Name { get; set; }
 
-        /// <summary>CAD handle of the beam (hex), for finding it in the model.</summary>
+        /// <summary>CAD handle of the beam (hex), for finding it in the model. For beams joined by connectors: the first part.</summary>
         public string Id { get; set; }
+
+        /// <summary>Handles of all parts that make up the beam (several when beams are joined by a connector).</summary>
+        public List<string> PartIds { get; } = new List<string>();
 
         public string Article { get; set; }
 

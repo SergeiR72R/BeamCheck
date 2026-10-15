@@ -227,5 +227,43 @@ namespace BeamCheck.Core.Tests
             Assert.Contains(r.Loads, l => Math.Abs(l.Position - support.Position) < 1);
             Assert.False(r.ContinuousSupport);
         }
+
+        [Fact]
+        public void Two_beams_joined_by_a_connector_are_one_long_beam_with_the_gap_included()
+        {
+            ScaffoldElement Beam(string id, double x0, double x1, string desc) => new ScaffoldElement
+            {
+                Id = id, Kind = ElementKind.Beam, Description = desc, Article = "1",
+                Start = new Vec3(x0, 0, 1120), End = new Vec3(x1, 0, 1120), Width = 162, ZMin = 1000, ZMax = 1240, WeightKg = 100,
+            };
+            var connector = new ScaffoldElement
+            {
+                Id = "CN", Kind = ElementKind.BeamConnector, Description = "Kletterschienenverbinder RCS 97",
+                Start = new Vec3(1900, 0, 1120), End = new Vec3(2865, 0, 1120), Width = 78, ZMin = 1000, ZMax = 1300, WeightKg = 10,
+            };
+            // Beam 1: 0..2000 (its end is inside the connector), beam 2: 2800..4800 with a gap of 800 mm between them.
+            var all = new List<ScaffoldElement> { Beam("B1", 0, 2000, "RCS 198"), Beam("B2", 2800, 4800, "RCS 198"), connector,
+                new ScaffoldElement { Id = "S", Kind = ElementKind.Standard, Start = new Vec3(500, 0, 0), End = new Vec3(500, 0, 1100), ZMin = 0, ZMax = 1100, WeightKg = 5 },
+                new ScaffoldElement { Id = "T", Kind = ElementKind.Standard, Start = new Vec3(4000, 0, 0), End = new Vec3(4000, 0, 1100), ZMin = 0, ZMax = 1100, WeightKg = 5 } };
+            var reports = BatchAnalyzer.Run(all, new BeamCheckSettings(), new BatchOptions());
+
+            var r = Assert.Single(reports);
+            Assert.Equal(4800, r.Length, 0);
+            Assert.Equal(2, r.Supports.Count);
+            Assert.Equal(500, r.Supports[0].Position, 0);
+            Assert.Equal(4000, r.Supports[1].Position, 0);
+            Assert.Equal(new[] { "B1", "B2", "CN" }, r.PartIds.OrderBy(x => x).ToArray());
+            Assert.Contains("RCS 198 + RCS 198", r.Description);
+            Assert.Equal(210, r.WeightKg, 6);
+        }
+
+        [Fact]
+        public void A_rail_connector_is_not_taken_for_a_beam_although_its_name_says_RCS()
+        {
+            var sig = new Recognition.ElementSignature { EntityType = "Geo", DxfName = "PERI_AEC_DB_BAUTEIL" };
+            sig.Add("COM:ArtNr", "111390");
+            sig.Add("COM:Bezeichnung", "Kletterschienenverbinder RCS 97");
+            Assert.Equal(ElementKind.BeamConnector, new Recognition.ElementClassifier(new BeamCheckSettings()).Classify(sig).Kind);
+        }
     }
 }

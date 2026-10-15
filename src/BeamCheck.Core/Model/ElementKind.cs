@@ -21,5 +21,7 @@ namespace BeamCheck.Core.Model
         /// everything it carries goes down the standard it is fixed to.
         /// </summary>
         Console,
+        /// <summary>Climbing-rail connector (Kletterschienenverbinder): joins two beams end to end rigidly, they act as one long beam.</summary>
+        BeamConnector,
     }
 }

@@ -27,7 +27,7 @@ namespace BeamCheck.Core.Batch
             {
                 overview.Rows.Add(new object[]
                 {
-                    r.Name, r.Id, r.Article ?? "", r.Description ?? "", I(r.Length), I(r.ZMin), I(r.ZMax), I(r.CenterX), I(r.CenterY), r.WeightKg, r.Supports.Count, r.Loads.Count,
+                    r.Name, string.Join(" + ", r.PartIds), r.Article ?? "", r.Description ?? "", I(r.Length), I(r.ZMin), I(r.ZMax), I(r.CenterX), I(r.CenterY), r.WeightKg, r.Supports.Count, r.Loads.Count,
                     r.TotalLoadFk, r.MaxLoadFk, r.ContinuousSupport ? "durchgehend (Untergrund)" : "Gelenklager (Ständer)",
                 });
             }
@@ -46,7 +46,7 @@ namespace BeamCheck.Core.Batch
                 {
                     positions.Rows.Add(new object[]
                     {
-                        r.Name, r.Id, e.Kind == BeamEventKind.Support ? "Auflager (Gelenklager)" : "Last", e.Label, I(e.Position), I(e.Delta),
+                        r.Name, string.Join(" + ", r.PartIds), e.Kind == BeamEventKind.Support ? "Auflager (Gelenklager)" : "Last", e.Label, I(e.Position), I(e.Delta),
                         L(e, e.Gk), L(e, e.Qk), L(e, e.Fk), L(e, e.Fd), e.Kind == BeamEventKind.Load ? (object)e.AreaM2 : null, e.Source ?? "",
                     });
                 }

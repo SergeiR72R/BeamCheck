@@ -137,6 +137,7 @@ namespace BeamCheck.Core.Recognition
                 case ElementKind.Accessory: return _settings.AccessoryKgPerM * m;
                 case ElementKind.Beam: return _settings.BeamKgPerM * m;
                 case ElementKind.Console: return _settings.ConsoleKgPerM * m;
+                case ElementKind.BeamConnector: return _settings.AccessoryKgPerM * m;
                 default: return 0;
             }
         }

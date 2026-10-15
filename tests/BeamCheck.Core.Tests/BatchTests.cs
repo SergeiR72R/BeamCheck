@@ -312,11 +312,14 @@ namespace BeamCheck.Core.Tests
                 // 1800: stack standing on a pin: a support.
                 new ScaffoldElement { Id = "Z", Kind = ElementKind.Accessory, Article = "130681", Description = "UH Zapfen", Start = new Vec3(1800, 0, 450), End = new Vec3(1800, 40, 450), ZMin = 400, ZMax = 700, WeightKg = 0.2 },
                 Std("P", 1800, 500, 3100, "101306", "UVR 100"),
+                // 1500: stack ending on a UVA: a support.
+                Std("U", 1500, 800, 1100, "136779", "UVA"), Std("V", 1500, 1100, 3100, "101306", "UVR 100"),
             };
             var r = BatchAnalyzer.Run(all, new BeamCheckSettings(), new BatchOptions()).Single();
-            Assert.Equal(2, r.Supports.Count);
+            Assert.Equal(3, r.Supports.Count);
             Assert.InRange(r.Supports[0].Position, 295, 305);
-            Assert.InRange(r.Supports[1].Position, 1795, 1805);
+            Assert.InRange(r.Supports[1].Position, 1495, 1505);
+            Assert.InRange(r.Supports[2].Position, 1795, 1805);
         }
     }
 }

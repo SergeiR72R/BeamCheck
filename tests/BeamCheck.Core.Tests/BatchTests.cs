@@ -265,5 +265,28 @@ namespace BeamCheck.Core.Tests
             sig.Add("COM:Bezeichnung", "Kletterschienenverbinder RCS 97");
             Assert.Equal(ElementKind.BeamConnector, new Recognition.ElementClassifier(new BeamCheckSettings()).Classify(sig).Kind);
         }
+
+        [Fact]
+        public void A_stack_beside_the_beam_is_neither_a_support_nor_a_load()
+        {
+            ScaffoldElement Std(string id, double x, double y, double z0, double z1) => new ScaffoldElement
+            {
+                Id = id, Kind = ElementKind.Standard, Start = new Vec3(x, y, z0), End = new Vec3(x, y, z1), ZMin = z0, ZMax = z1, WeightKg = 8,
+            };
+            var beam = new ScaffoldElement
+            {
+                Id = "BM", Kind = ElementKind.Beam, Description = "RCS 148", Start = new Vec3(0, 0, 1120), End = new Vec3(1480, 0, 1120),
+                Width = 82, ZMin = 1020, ZMax = 1220, WeightKg = 38,
+            };
+            // Under the beam and reaching it: a support at 300. Beside it by 100 mm (a stand with a console): nothing.
+            var all = new List<ScaffoldElement>
+            {
+                beam, Std("A", 300, 20, 0, 1100), Std("B", 900, 100, 0, 1100), Std("C", 900, 100, 1100, 2000),
+            };
+            var r = BatchAnalyzer.Run(all, new BeamCheckSettings(), new BatchOptions()).Single();
+            var support = Assert.Single(r.Supports);
+            Assert.Equal(300, support.Position, 0);
+            Assert.DoesNotContain(r.Loads, l => l.Position > 800);
+        }
     }
 }

@@ -255,6 +255,8 @@ namespace BeamCheck.Core.Batch
                     Fd = p.Fd,
                     AreaM2 = p.AreaM2,
                     Source = p.Name,
+                    Detail = string.Format(CultureInfo.InvariantCulture, "stack Z {0:0}..{1:0}, offset from beam axis {2:0} mm, parts {3}",
+                        p.Column.ZBottom, p.Column.ZTop, p.Column.OffsetFromBeamAxis, string.Join(",", p.Column.Sections.Select(c => c.Id))),
                 });
             }
 
@@ -270,7 +272,13 @@ namespace BeamCheck.Core.Batch
             }
             else
             {
-                var events = supports.Select(x => new BeamEvent { Kind = BeamEventKind.Support, Position = Left(x.Position) }).OrderBy(e => e.Position).ToList();
+                var events = supports.Select(x => new BeamEvent
+                {
+                    Kind = BeamEventKind.Support,
+                    Position = Left(x.Position),
+                    Detail = string.Format(CultureInfo.InvariantCulture, "stack Z {0:0}..{1:0}, offset from beam axis {2:0} mm, parts {3}",
+                        x.Column.ZBottom, x.Column.ZTop, x.Offset, string.Join(",", x.Column.Sections.Select(c => c.Id))),
+                }).OrderBy(e => e.Position).ToList();
                 for (int j = 0; j < events.Count; j++)
                     events[j].Label = "S" + (j + 1).ToString(CultureInfo.InvariantCulture);
                 report.Supports.AddRange(events);
@@ -294,7 +302,7 @@ namespace BeamCheck.Core.Batch
                 return false;
             double t = PlanGeometry.ProjectXY(beam.Start, beam.End, st.Start, out double offset);
             double pos = t * beam.PlanLength;
-            return offset <= beam.Width / 2 + s.BeamPlanTolerance && pos >= -s.BeamPlanTolerance && pos <= beam.PlanLength + s.BeamPlanTolerance;
+            return offset <= beam.Width / 2 + s.SupportPlanTolerance && pos >= -s.BeamPlanTolerance && pos <= beam.PlanLength + s.BeamPlanTolerance;
         }
 
         /// <summary>Elements within the search radius of the standards standing on the beam (a pre-filter, the analysis is the same).</summary>

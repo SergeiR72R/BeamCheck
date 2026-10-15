@@ -17,7 +17,7 @@ namespace BeamCheck.Core.Settings
         }
 
         /// <summary>Bumped when defaults change in a way old settings files must not keep.</summary>
-        public const int CurrentVersion = 15;
+        public const int CurrentVersion = 16;
 
         [DataMember(Order = 0)] public int SettingsVersion { get; set; }
 
@@ -98,6 +98,12 @@ namespace BeamCheck.Core.Settings
 
         /// <summary>How far above the stack top an upper beam may sit and still count as carried by it.</summary>
         [DataMember(Order = 30)] public double UpperBeamBearingTolerance { get; set; }
+
+        /// <summary>
+        /// A stand beside the beam (its axis further than half the beam width plus this from the beam axis) does not carry it and is not
+        /// carried by it, mm. Used by the batch run; stands next to a beam, e.g. with a console, are not supports.
+        /// </summary>
+        [DataMember(Order = 72)] public double SupportPlanTolerance { get; set; }
 
         /// <summary>
         /// A load on the overhang of an upper beam relieves its far support by statics. false (default) = that relief is not
@@ -249,6 +255,7 @@ namespace BeamCheck.Core.Settings
             LevelZTolerance = 150;
             ColumnGapTolerance = 300;
             UpperBeamBearingTolerance = 30;
+            SupportPlanTolerance = 40;
             SearchRadius = 5000;
 
             StandardKgPerM = 5.5;

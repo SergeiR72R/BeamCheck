@@ -208,7 +208,11 @@ namespace BeamCheck.Core.Analysis
                     continue;
                 if (!OnBeamFootprint(beam, run.Axis, out double pos))
                     continue;
-                link.Supports.Add(new BeamSupport { Column = run, Position = pos });
+                double t = PlanGeometry.ProjectXY(beam.Start, beam.End, run.Axis, out double offset);
+                // Under the beam, not beside it: a stand next to the beam (with a console, say) does not carry it.
+                if (offset > beam.Width / 2 + _s.SupportPlanTolerance)
+                    continue;
+                link.Supports.Add(new BeamSupport { Column = run, Position = pos, Offset = offset });
             }
 
             link.Supports.Sort((a, b) => a.Position.CompareTo(b.Position));

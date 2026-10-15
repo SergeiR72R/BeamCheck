@@ -1,5 +1,5 @@
 {
-  "SettingsVersion": 15,
+  "SettingsVersion": 16,
   "LoadClasses": [
     {
       "Class": 1,
@@ -133,6 +133,7 @@
   "ConsoleKgPerM": 6,
   "ShapeDeckMinWidth": 150,
   "ShapeDeckMaxWidth": 800,
+  "SupportPlanTolerance": 40,
   "PeriDisplayBlockPattern": "^PERI_(\\d{6}(?:-\\d+)?)_PartDisplayName_(.+)$",
   "PeriAxisBlockSuffix": "Line",
   "IgnoreDxfPattern": "(?i)GRUPPE|_GROUP|MANAGER|DISPREP|DISP_REP",

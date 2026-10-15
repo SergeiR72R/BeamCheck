@@ -154,6 +154,13 @@ namespace BeamCheck.Cad
 
             Plugin.Log(string.Format(CultureInfo.InvariantCulture, "BEAMBATCH {0}: {1} Objekte, {2} Teile, {3} Träger in {4:0.0} s",
                 Plugin.BuildTag, ids.Length, elements.Count, reports.Count, watch.Elapsed.TotalSeconds));
+            foreach (var r in reports)
+            {
+                Plugin.Log(string.Format(CultureInfo.InvariantCulture, "  {0} {1} {2} L={3:0} Z {4:0}..{5:0} parts {6}", r.Name, r.Description, r.Article, r.Length, r.ZMin, r.ZMax, string.Join("+", r.PartIds)));
+                foreach (var e in r.Events)
+                    Plugin.Log(string.Format(CultureInfo.InvariantCulture, "      {0} {1} at {2:0} mm: {3}", e.Kind, e.Label, e.Position, e.Detail));
+            }
+
             if (reports.Count == 0)
                 return;
 

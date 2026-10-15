@@ -126,6 +126,9 @@ namespace BeamCheck.Core.Analysis
 
         /// <summary>Position along the beam, mm.</summary>
         public double Position { get; set; }
+
+        /// <summary>Plan distance of the stack axis from the beam axis, mm.</summary>
+        public double Offset { get; set; }
     }
 
     /// <summary>An upper beam, the columns that carry it and the columns standing on it.</summary>

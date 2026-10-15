@@ -35,6 +35,9 @@ namespace BeamCheck.Core.Batch
         /// <summary>Loads: tributary deck area, m².</summary>
         public double AreaM2 { get; set; }
 
+        /// <summary>Diagnostics for the log: where it comes from (stack heights, plan offset from the beam axis, parts).</summary>
+        public string Detail { get; set; }
+
         /// <summary>Loads: name of the standard it comes from (S1 of the single-beam check).</summary>
         public string Source { get; set; }
     }

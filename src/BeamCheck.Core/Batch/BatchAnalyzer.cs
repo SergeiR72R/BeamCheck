@@ -146,7 +146,7 @@ namespace BeamCheck.Core.Batch
             for (int i = 0; i < report.Loads.Count; i++)
                 report.Loads[i].Label = LetterLabel(i);
 
-            // Supports, left to right, with their reactions by the lever rule per span (as the load transfer through beams).
+            // Supports, left to right: always pin supports; shown even where a load goes straight down onto one.
             if (supports.Count == 0)
             {
                 report.ContinuousSupport = true;
@@ -154,48 +154,10 @@ namespace BeamCheck.Core.Batch
             }
             else
             {
-                var pos = supports.Select(x => x.Position).ToArray();
-                var reaction = new double[pos.Length];
-                var reactionG = new double[pos.Length];
-                var reactionQ = new double[pos.Length];
-                foreach (var p in points)
-                {
-                    var f = ScaffoldAnalyzer.Distribute(pos, p.Position);
-                    for (int j = 0; j < pos.Length; j++)
-                    {
-                        reactionG[j] += p.Gk * f[j];
-                        reactionQ[j] += p.Qk * f[j];
-                    }
-                }
-
-                const int n = 40;
-                for (int k = 0; k < n; k++)
-                {
-                    var f = ScaffoldAnalyzer.Distribute(pos, (k + 0.5) / n * len);
-                    for (int j = 0; j < pos.Length; j++)
-                        reactionG[j] += report.SelfWeightKn * f[j] / n;
-                }
-
-                var events = new List<BeamEvent>();
-                for (int j = 0; j < pos.Length; j++)
-                {
-                    reaction[j] = reactionG[j] + reactionQ[j];
-                    events.Add(new BeamEvent
-                    {
-                        Kind = BeamEventKind.Support,
-                        Position = Left(pos[j]),
-                        Gk = reactionG[j],
-                        Qk = reactionQ[j],
-                        Fd = s.GammaG * reactionG[j] + s.GammaQ * reactionQ[j],
-                    });
-                }
-
-                events.Sort((a, b) => a.Position.CompareTo(b.Position));
+                var events = supports.Select(x => new BeamEvent { Kind = BeamEventKind.Support, Position = Left(x.Position) }).OrderBy(e => e.Position).ToList();
                 for (int j = 0; j < events.Count; j++)
                     events[j].Label = "S" + (j + 1).ToString(CultureInfo.InvariantCulture);
                 report.Supports.AddRange(events);
-                if (events.Any(e => e.Fk < -0.005))
-                    notes.Add("Ein Auflager wird entlastet (negative Auflagerkraft, Abheben): Kragarm-Last nach Hebelgesetz.");
             }
 
             // Distances along the chain.

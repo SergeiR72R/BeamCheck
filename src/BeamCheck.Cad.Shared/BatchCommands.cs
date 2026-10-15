@@ -295,7 +295,6 @@ namespace BeamCheck.Cad
             Supports = r.Supports.Count,
             Loads = r.Loads.Count,
             MaxLoad = r.MaxLoadFk,
-            MaxReaction = r.MaxReactionFk,
             Notes = string.Join(" | ", r.Notes),
         }).ToList();
 

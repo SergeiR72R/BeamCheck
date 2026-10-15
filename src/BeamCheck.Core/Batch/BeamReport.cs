@@ -23,7 +23,7 @@ namespace BeamCheck.Core.Batch
         /// <summary>Distance from the previous support or load along the beam (from the left edge for the first), mm.</summary>
         public double Delta { get; set; }
 
-        /// <summary>Loads: permanent / service / total characteristic, design value, kN. Supports: the reaction.</summary>
+        /// <summary>Loads: permanent / service / total characteristic and design value, kN (supports carry no values).</summary>
         public double Gk { get; set; }
 
         public double Qk { get; set; }
@@ -108,6 +108,5 @@ namespace BeamCheck.Core.Batch
 
         public double MaxLoadFk => Loads.Count == 0 ? 0 : Loads.Max(l => l.Fk);
 
-        public double MaxReactionFk => Supports.Count == 0 ? 0 : Supports.Max(s => s.Fk);
     }
 }

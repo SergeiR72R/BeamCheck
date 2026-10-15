@@ -74,7 +74,7 @@ namespace BeamCheck.Core.Tests
             _out.WriteLine("beams: " + reports.Count);
             foreach (var r in reports)
             {
-                _out.WriteLine($"{r.Name} {r.Id} {r.Description} L={r.Length:0} Z {r.ZMin:0}..{r.ZMax:0} rev={r.Reversed} supports={r.Supports.Count} loads={r.Loads.Count} cont={r.ContinuousSupport} maxF={r.MaxLoadFk:0.00} maxR={r.MaxReactionFk:0.00}");
+                _out.WriteLine($"{r.Name} {r.Id} {r.Description} L={r.Length:0} Z {r.ZMin:0}..{r.ZMax:0} rev={r.Reversed} supports={r.Supports.Count} loads={r.Loads.Count} cont={r.ContinuousSupport} maxF={r.MaxLoadFk:0.00}");
                 foreach (var e in r.Events)
                     _out.WriteLine($"    {e.Kind,-8} {e.Label,-3} pos={e.Position:0} d={e.Delta:0} Gk={e.Gk:0.00} Qk={e.Qk:0.00}");
             }
@@ -94,16 +94,16 @@ namespace BeamCheck.Core.Tests
         private const double s_tol = 200;
 
         [Fact]
-        public void Reactions_add_up_to_the_loads_and_the_weight_of_the_beam()
+        public void Supports_are_pin_supports_without_values_and_stay_next_to_loads_above_them()
         {
-            var all = Load("log_beam_73CB0.json.gz");
-            var reports = BatchAnalyzer.Run(all, new BeamCheckSettings(), new BatchOptions());
-            foreach (var r in reports.Where(r => !r.ContinuousSupport && r.Loads.Count > 0))
-            {
-                double down = r.Loads.Sum(l => l.Fk) + r.SelfWeightKn;
-                double up = r.Supports.Sum(s => s.Fk);
-                Assert.True(Math.Abs(down - up) < 1e-6 + 1e-6 * down, $"{r.Name}: loads {down:0.000} reactions {up:0.000}");
-            }
+            var reports = BatchAnalyzer.Run(Load("log_beam_73CB0.json.gz"), new BeamCheckSettings(), new BatchOptions());
+            Assert.All(reports.SelectMany(r => r.Supports), s => Assert.Equal(0, s.Fk));
+            // A load that goes straight down onto a support is still listed, with the support under it.
+            Assert.Contains(reports, r => r.Supports.Any(s => r.Loads.Any(l => Math.Abs(l.Position - s.Position) < 1)));
+            var r1 = reports.First(r => r.Supports.Any(s => r.Loads.Any(l => Math.Abs(l.Position - s.Position) < 1)));
+            var ill = BeamIllustration.Build(r1, false, ",");
+            Assert.DoesNotContain(ill.Texts, t => t.Text.StartsWith("R ="));
+            Assert.Contains(ill.Texts, t => t.Text == r1.Supports[0].Label);
         }
 
         [Fact]

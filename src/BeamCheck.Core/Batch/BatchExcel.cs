@@ -8,6 +8,8 @@ namespace BeamCheck.Core.Batch
     /// <summary>The workbook of a batch run: overview of all beams, every support and load with its distances, the pictures.</summary>
     public static class BatchExcel
     {
+        private static object L(BeamEvent e, double v) => e.Kind == BeamEventKind.Load ? (object)v : null;
+
         private static int I(double v) => (int)Math.Round(v);
 
         /// <param name="pictures">Renders the picture of a beam as PNG with its size in pixels (null: no picture sheet).</param>
@@ -19,18 +21,18 @@ namespace BeamCheck.Core.Batch
             overview.Rows.Add(new object[]
             {
                 "Balken", "Handle", "Artikel", "Bezeichnung", "Länge [mm]", "Höhe UK [mm]", "Höhe OK [mm]", "Mitte X [mm]", "Mitte Y [mm]", "Gewicht [kg]", "Auflager", "Lasten",
-                "Σ Lasten Fk [kN]", "max. Last Fk [kN]", "max. Auflagerkraft Fk [kN]", "Auflage", "Hinweise",
+                "Σ Lasten Fk [kN]", "max. Last Fk [kN]", "Auflage", "Hinweise",
             });
             foreach (var r in reports)
             {
                 overview.Rows.Add(new object[]
                 {
                     r.Name, r.Id, r.Article ?? "", r.Description ?? "", I(r.Length), I(r.ZMin), I(r.ZMax), I(r.CenterX), I(r.CenterY), r.WeightKg, r.Supports.Count, r.Loads.Count,
-                    r.TotalLoadFk, r.MaxLoadFk, r.MaxReactionFk, r.ContinuousSupport ? "durchgehend (Untergrund)" : "Ständer", string.Join(" | ", r.Notes),
+                    r.TotalLoadFk, r.MaxLoadFk, r.ContinuousSupport ? "durchgehend (Untergrund)" : "Gelenklager (Ständer)", string.Join(" | ", r.Notes),
                 });
             }
 
-            overview.ColumnWidths.AddRange(new double[] { 10, 10, 10, 26, 11, 12, 12, 13, 13, 11, 9, 8, 14, 14, 18, 22, 70 });
+            overview.ColumnWidths.AddRange(new double[] { 10, 10, 10, 26, 11, 12, 12, 13, 13, 11, 9, 8, 14, 14, 22, 70 });
 
             var positions = wb.AddSheet("Positionen");
             positions.Rows.Add(new object[]
@@ -44,8 +46,8 @@ namespace BeamCheck.Core.Batch
                 {
                     positions.Rows.Add(new object[]
                     {
-                        r.Name, r.Id, e.Kind == BeamEventKind.Support ? "Auflager (Reaktion)" : "Last", e.Label, I(e.Position), I(e.Delta),
-                        e.Gk, e.Qk, e.Fk, e.Fd, e.Kind == BeamEventKind.Load ? (object)e.AreaM2 : null, e.Source ?? "",
+                        r.Name, r.Id, e.Kind == BeamEventKind.Support ? "Auflager (Gelenklager)" : "Last", e.Label, I(e.Position), I(e.Delta),
+                        L(e, e.Gk), L(e, e.Qk), L(e, e.Fk), L(e, e.Fd), e.Kind == BeamEventKind.Load ? (object)e.AreaM2 : null, e.Source ?? "",
                     });
                 }
             }

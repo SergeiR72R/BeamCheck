@@ -104,7 +104,7 @@ namespace BeamCheck.Core.Report
                 ill.Texts.Add(new IllText { X = l.Position, Y = tail + th * 1.45, Text = l.Label, Height = th * 1.4, Anchor = TextAnchor.BottomCenter, Bold = true, Color = IllColor.Text });
             }
 
-            // Supports under the beam, with name and reaction.
+            // Supports under the beam (always pin supports), with their names.
             double lowest = -H;
             if (r.ContinuousSupport)
             {
@@ -117,25 +117,15 @@ namespace BeamCheck.Core.Report
             }
             else
             {
-                var rowRightBottom = new List<double>();
                 double yBase = -H - th * 1.8;
                 foreach (var s in r.Supports)
                 {
                     ill.Poly(new[] { new[] { s.Position, -H }, new[] { s.Position - th, yBase }, new[] { s.Position + th, yBase } }, true, false, IllColor.Support);
                     ill.Lines.Add(new IllLine { X1 = s.Position - th * 1.3, Y1 = yBase, X2 = s.Position + th * 1.3, Y2 = yBase, Color = IllColor.Support });
-                    string value = "R = " + f.Kn(design ? s.Fd : s.Fk);
-                    double w = Math.Max(value.Length * CharWidth * th * 0.9, th * 2.5);
-                    double left = s.Position - w / 2;
-                    int row = 0;
-                    while (row < rowRightBottom.Count && rowRightBottom[row] > left)
-                        row++;
-                    if (row == rowRightBottom.Count)
-                        rowRightBottom.Add(double.MinValue);
-                    rowRightBottom[row] = s.Position + w / 2 + th * 0.4;
-                    double yText = yBase - th * 1.2 - row * th * 2.5;
-                    ill.Texts.Add(new IllText { X = s.Position, Y = yText, Text = value, Height = th * 0.9, Anchor = TextAnchor.BottomCenter, Color = IllColor.Support });
-                    ill.Texts.Add(new IllText { X = s.Position, Y = yText - th * 1.2, Text = s.Label, Height = th * 1.0, Anchor = TextAnchor.BottomCenter, Bold = true, Color = IllColor.Text });
-                    lowest = Math.Min(lowest, yText - th * 1.2);
+                    // Pin support with its name; no reactions are shown.
+                    double yText = yBase - th * 1.2;
+                    ill.Texts.Add(new IllText { X = s.Position, Y = yText, Text = s.Label, Height = th * 1.0, Anchor = TextAnchor.BottomCenter, Bold = true, Color = IllColor.Text });
+                    lowest = Math.Min(lowest, yText);
                 }
 
                 lowest = Math.Min(lowest, yBase);

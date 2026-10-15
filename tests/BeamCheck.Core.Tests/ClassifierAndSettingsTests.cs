@@ -60,7 +60,7 @@ namespace BeamCheck.Core.Tests
 
             var partial = SettingsStore.Deserialize(new MemoryStream(Encoding.UTF8.GetBytes("{\"DefaultLoadClass\":2}")));
             Assert.Equal(2, partial.DefaultLoadClass);
-            Assert.Equal(1.35, partial.GammaG);
+            Assert.Equal(1.5, partial.GammaG);
             Assert.Equal(120, partial.NodeTolerance);
         }
 

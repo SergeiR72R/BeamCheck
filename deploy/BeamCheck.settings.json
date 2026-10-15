@@ -1,5 +1,5 @@
 {
-  "SettingsVersion": 16,
+  "SettingsVersion": 17,
   "LoadClasses": [
     {
       "Class": 1,
@@ -31,7 +31,7 @@
   "MainLevelFactor": 1,
   "AdjacentLevelFactor": 0.5,
   "OtherLevelFactor": 0,
-  "GammaG": 1.35,
+  "GammaG": 1.5,
   "GammaQ": 1.5,
   "ShowDesignValues": false,
   "ColumnXYTolerance": 30,

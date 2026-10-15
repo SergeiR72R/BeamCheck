@@ -107,7 +107,7 @@ namespace BeamCheck.Core.Analysis
         /// <summary>Level index → service-load factor. Missing levels use 0.</summary>
         public Dictionary<int, double> LevelFactors { get; set; } = new Dictionary<int, double>();
 
-        public double GammaG { get; set; } = 1.35;
+        public double GammaG { get; set; } = 1.5;
 
         public double GammaQ { get; set; } = 1.5;
 

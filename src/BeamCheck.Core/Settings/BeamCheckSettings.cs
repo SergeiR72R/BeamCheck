@@ -17,7 +17,7 @@ namespace BeamCheck.Core.Settings
         }
 
         /// <summary>Bumped when defaults change in a way old settings files must not keep.</summary>
-        public const int CurrentVersion = 16;
+        public const int CurrentVersion = 17;
 
         [DataMember(Order = 0)] public int SettingsVersion { get; set; }
 
@@ -233,7 +233,7 @@ namespace BeamCheck.Core.Settings
             MainLevelFactor = 1.0;
             AdjacentLevelFactor = 0.5;
             OtherLevelFactor = 0.0;
-            GammaG = 1.35;
+            GammaG = 1.5;
             GammaQ = 1.5;
             ShowDesignValues = false;
 

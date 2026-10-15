@@ -57,7 +57,7 @@ namespace BeamCheck.Core.Tests
             // S1: 3 sections x 10 kg + per level (½ long ledger 5 kg + ½ transverse 4 kg + ¾ deck-equivalents x 5 kg) x 2.
             double kg = 30 + 2 * (2.5 + 2 + 0.75 * 5);
             Assert.Equal(LoadCalculator.KgToKn(kg), r.Points[0].Gk, 6);
-            Assert.Equal(1.35 * r.Points[0].Gk + 1.5 * r.Points[0].Qk, r.Points[0].Fd, 9);
+            Assert.Equal(1.5 * r.Points[0].Gk + 1.5 * r.Points[0].Qk, r.Points[0].Fd, 9);
         }
 
         [Fact]

@@ -91,7 +91,7 @@ namespace BeamCheck.Core.Batch
 
         public int LoadClass { get; set; }
 
-        public double GammaG { get; set; } = 1.35;
+        public double GammaG { get; set; } = 1.5;
 
         public double GammaQ { get; set; } = 1.5;
 

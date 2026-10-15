@@ -84,7 +84,7 @@ namespace BeamCheck.Cad.UI
                 _loadClass.Items.Add(new ClassItem(c, _nf));
             _levelMode = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 260 };
             _levelMode.Items.AddRange(new object[] { "Nutzlast auf einer Ebene — der am höchsten belasteten", "Nutzlast auf allen Ebenen 100 %", "Eine Ebene 100 % + eine benachbarte 50 % (EN 12811-1)" });
-            _gammaG = Num(1.35m);
+            _gammaG = Num(1.5m);
             _gammaQ = Num(1.5m);
             _showDesign = new CheckBox { Text = "Im Schema: Bemessungswerte Fd", AutoSize = true, Margin = new Padding(12, 6, 3, 3) };
             _snap = new CheckBox { Text = "Beläge nicht auf einem Riegel — dem nächsten Riegel zuordnen, mm:", AutoSize = true, Margin = new Padding(12, 6, 3, 3) };

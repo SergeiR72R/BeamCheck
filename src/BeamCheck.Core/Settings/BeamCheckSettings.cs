@@ -17,7 +17,7 @@ namespace BeamCheck.Core.Settings
         }
 
         /// <summary>Bumped when defaults change in a way old settings files must not keep.</summary>
-        public const int CurrentVersion = 14;
+        public const int CurrentVersion = 15;
 
         [DataMember(Order = 0)] public int SettingsVersion { get; set; }
 
@@ -248,7 +248,7 @@ namespace BeamCheck.Core.Settings
             ColumnOnBeamZTolerance = 600;
             LevelZTolerance = 150;
             ColumnGapTolerance = 300;
-            UpperBeamBearingTolerance = 400;
+            UpperBeamBearingTolerance = 30;
             SearchRadius = 5000;
 
             StandardKgPerM = 5.5;

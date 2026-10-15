@@ -1,5 +1,5 @@
 {
-  "SettingsVersion": 14,
+  "SettingsVersion": 15,
   "LoadClasses": [
     {
       "Class": 1,
@@ -44,7 +44,7 @@
   "LevelZTolerance": 150,
   "SearchRadius": 5000,
   "ColumnGapTolerance": 300,
-  "UpperBeamBearingTolerance": 400,
+  "UpperBeamBearingTolerance": 30,
   "DeckHeightTolerance": 50,
   "DeckSnapEnabled": true,
   "DeckSnapDistance": 300,

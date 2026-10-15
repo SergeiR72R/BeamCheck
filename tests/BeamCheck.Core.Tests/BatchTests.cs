@@ -167,5 +167,43 @@ namespace BeamCheck.Core.Tests
             Assert.Equal(NavisworksExport.TopLevelHandle(first.Id), (string)set.Descendants("data").Single());
             Assert.Equal("AB", NavisworksExport.TopLevelHandle("AB/12"));
         }
+
+        private static double[] Rotate(double[] q, double[] v)
+        {
+            double x = q[0], y = q[1], z = q[2], w = q[3];
+            double tx = 2 * (y * v[2] - z * v[1]), ty = 2 * (z * v[0] - x * v[2]), tz = 2 * (x * v[1] - y * v[0]);
+            return new[] { v[0] + w * tx + (y * tz - z * ty), v[1] + w * ty + (z * tx - x * tz), v[2] + w * tz + (x * ty - y * tx) };
+        }
+
+        [Theory]
+        [InlineData(-0.83, 0.5, -0.25)]       // a camera of a viewpoint exported from Navisworks looks like this
+        [InlineData(0.62, 0.78, 0.11)]
+        [InlineData(0, -1, 0)]
+        [InlineData(0, 0, -1)]
+        public void The_camera_quaternion_looks_along_the_requested_direction_with_z_up(double fx, double fy, double fz)
+        {
+            var q = NavisworksExport.LookAtQuaternion(new[] { fx, fy, fz });
+            double l = Math.Sqrt(fx * fx + fy * fy + fz * fz);
+            var f = Rotate(q, new[] { 0.0, 0, -1 });
+            Assert.Equal(fx / l, f[0], 6); Assert.Equal(fy / l, f[1], 6); Assert.Equal(fz / l, f[2], 6);
+            var up = Rotate(q, new[] { 0.0, 1, 0 });
+            Assert.True(up[2] > -1e-9);
+            Assert.Equal(1, Math.Sqrt(q.Sum(c => c * c)), 6);
+        }
+
+        [Fact]
+        public void Viewpoints_xml_has_one_named_view_per_beam_in_metres()
+        {
+            var reports = BatchAnalyzer.Run(Load("log_beam_73CB0.json.gz"), new BeamCheckSettings(), new BatchOptions());
+            var doc = System.Xml.Linq.XDocument.Parse(NavisworksExport.ViewpointsXml(reports));
+            var views = doc.Descendants("view").ToList();
+            Assert.Equal(reports.Count, views.Count);
+            var v = views.First(x => ((string)x.Attribute("name")).StartsWith(reports[0].Name));
+            var pos = v.Descendants("pos3f").First();
+            // The camera is within ~12 m of the beam (the drawing is in mm, the file in m).
+            double cx = (double)pos.Attribute("x") * 1000, cy = (double)pos.Attribute("y") * 1000;
+            Assert.True(Math.Sqrt(Math.Pow(cx - reports[0].CenterX, 2) + Math.Pow(cy - reports[0].CenterY, 2)) < 12500);
+            Assert.Equal("m", (string)doc.Root.Attribute("units"));
+        }
     }
 }

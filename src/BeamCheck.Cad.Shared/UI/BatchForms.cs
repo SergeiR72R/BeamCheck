@@ -93,7 +93,7 @@ namespace BeamCheck.Cad.UI
         private readonly ComboBox _class = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 260 };
         private readonly CheckBox _excel = new CheckBox { Text = "Excel-Tabelle mit Abbildungen erstellen", Checked = true, AutoSize = true };
         private readonly CheckBox _labels = new CheckBox { Text = "Balkennamen im Modell beschriften (Layer BEAMCHECK_NAMEN)", Checked = true, AutoSize = true };
-        private readonly CheckBox _navis = new CheckBox { Text = "Navisworks-Suchsätze (XML) erstellen: Träger per Handle in NWF/NWC finden", Checked = true, AutoSize = true };
+        private readonly CheckBox _navis = new CheckBox { Text = "Navisworks-Ansichtspunkte (XML): Träger in NWF/NWC per Name anspringen", Checked = true, AutoSize = true };
         private readonly CheckBox _pictures = new CheckBox { Text = "Abbildungen in die Zeichnung einfügen", Checked = false, AutoSize = true };
         private readonly List<int> _classes = new List<int>();
 

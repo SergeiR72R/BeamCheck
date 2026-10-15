@@ -18,19 +18,19 @@ namespace BeamCheck.Core.Batch
             var overview = wb.AddSheet("Übersicht");
             overview.Rows.Add(new object[]
             {
-                "Balken", "Handle", "Artikel", "Bezeichnung", "Länge [mm]", "Höhe UK [mm]", "Höhe OK [mm]", "Gewicht [kg]", "Auflager", "Lasten",
+                "Balken", "Handle", "Artikel", "Bezeichnung", "Länge [mm]", "Höhe UK [mm]", "Höhe OK [mm]", "Mitte X [mm]", "Mitte Y [mm]", "Gewicht [kg]", "Auflager", "Lasten",
                 "Σ Lasten Fk [kN]", "max. Last Fk [kN]", "max. Auflagerkraft Fk [kN]", "Auflage", "Hinweise",
             });
             foreach (var r in reports)
             {
                 overview.Rows.Add(new object[]
                 {
-                    r.Name, r.Id, r.Article ?? "", r.Description ?? "", I(r.Length), I(r.ZMin), I(r.ZMax), r.WeightKg, r.Supports.Count, r.Loads.Count,
+                    r.Name, r.Id, r.Article ?? "", r.Description ?? "", I(r.Length), I(r.ZMin), I(r.ZMax), I(r.CenterX), I(r.CenterY), r.WeightKg, r.Supports.Count, r.Loads.Count,
                     r.TotalLoadFk, r.MaxLoadFk, r.MaxReactionFk, r.ContinuousSupport ? "durchgehend (Untergrund)" : "Ständer", string.Join(" | ", r.Notes),
                 });
             }
 
-            overview.ColumnWidths.AddRange(new double[] { 10, 10, 10, 26, 11, 12, 12, 11, 9, 8, 14, 14, 18, 22, 70 });
+            overview.ColumnWidths.AddRange(new double[] { 10, 10, 10, 26, 11, 12, 12, 13, 13, 11, 9, 8, 14, 14, 18, 22, 70 });
 
             var positions = wb.AddSheet("Positionen");
             positions.Rows.Add(new object[]

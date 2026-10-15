@@ -53,6 +53,21 @@ namespace BeamCheck.Core.Batch
 
         public double Length { get; set; }
 
+        /// <summary>Beam axis ends in the drawing (mm), as read from the model (start → end, not mirrored).</summary>
+        public double StartX { get; set; }
+
+        public double StartY { get; set; }
+
+        public double EndX { get; set; }
+
+        public double EndY { get; set; }
+
+        public double CenterX => (StartX + EndX) / 2;
+
+        public double CenterY => (StartY + EndY) / 2;
+
+        public double CenterZ => (ZMin + ZMax) / 2;
+
         public double ZMin { get; set; }
 
         public double ZMax { get; set; }

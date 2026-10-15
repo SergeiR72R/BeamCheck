@@ -377,17 +377,17 @@ namespace BeamCheck.Cad
             }
         }
 
-        /// <summary>Search sets for Navisworks, next to the workbook (or the drawing): one set per beam, selecting it by handle.</summary>
+        /// <summary>Saved viewpoints for Navisworks, next to the workbook (or the drawing): one per beam, named like it.</summary>
         private static void WriteNavisworks(Database db, List<BeamReport> reports, string excelPath, Editor ed)
         {
             string dir = !string.IsNullOrEmpty(excelPath) ? Path.GetDirectoryName(excelPath)
                 : string.IsNullOrEmpty(db.Filename) ? Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) : Path.GetDirectoryName(db.Filename);
-            string name = (string.IsNullOrEmpty(db.Filename) ? "Zeichnung" : Path.GetFileNameWithoutExtension(db.Filename)) + "_Traeger_Navisworks.xml";
+            string name = (string.IsNullOrEmpty(db.Filename) ? "Zeichnung" : Path.GetFileNameWithoutExtension(db.Filename)) + "_Traeger_Ansichtspunkte.xml";
             try
             {
                 string path = Path.Combine(dir, name);
-                File.WriteAllText(path, NavisworksExport.SearchSetsXml(reports), new System.Text.UTF8Encoding(false));
-                ed.WriteMessage("\nNavisworks-Suchsätze: " + path + "\n  Navisworks: Sets → Suchsätze importieren; Satz wählen, dann „Elemente fokussieren“ (F).");
+                File.WriteAllText(path, NavisworksExport.ViewpointsXml(reports), new System.Text.UTF8Encoding(false));
+                ed.WriteMessage("\nNavisworks-Ansichtspunkte: " + path + "\n  Navisworks: Gespeicherte Ansichtspunkte → Rechtsklick → Ansichtspunkte importieren; dann den Träger (B-001 …) doppelklicken.");
             }
             catch (System.Exception ex)
             {

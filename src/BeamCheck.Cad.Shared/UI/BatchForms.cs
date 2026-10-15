@@ -172,7 +172,7 @@ namespace BeamCheck.Cad.UI
             top.Controls.Add(_search);
             top.Controls.Add(new Label { Text = "Doppelklick oder „Im Modell zeigen“ springt zum Träger.", AutoSize = true, Margin = new Padding(12, 6, 3, 3) });
 
-            foreach (var h in new[] { "Träger", "Handle", "Artikel", "Bezeichnung", "Länge, mm", "Auflager", "Lasten", "max. Last Fk, kN", "Hinweise" })
+            foreach (var h in new[] { "Träger", "Handle", "Artikel", "Bezeichnung", "Länge, mm", "Auflager", "Lasten", "max. Last Fk, kN" })
                 _grid.Columns.Add(h, h);
 
             var buttons = new FlowLayoutPanel { Dock = DockStyle.Bottom, AutoSize = true, FlowDirection = FlowDirection.RightToLeft, Padding = new Padding(8) };
@@ -245,7 +245,7 @@ namespace BeamCheck.Cad.UI
                 if (q.Length > 0 && (r.Name + " " + r.Article + " " + r.Description + " " + r.Handle).IndexOf(q, StringComparison.OrdinalIgnoreCase) < 0)
                     continue;
                 int idx = _grid.Rows.Add(r.Name, r.Handle, r.Article, r.Description, r.Length.ToString("0"), r.Supports, r.Loads,
-                    r.MaxLoad.ToString("0.00"), r.Notes);
+                    r.MaxLoad.ToString("0.00"));
                 _grid.Rows[idx].Tag = i;
             }
         }

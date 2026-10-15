@@ -205,5 +205,27 @@ namespace BeamCheck.Core.Tests
             Assert.True(Math.Sqrt(Math.Pow(cx - reports[0].CenterX, 2) + Math.Pow(cy - reports[0].CenterY, 2)) < 12500);
             Assert.Equal("m", (string)doc.Root.Attribute("units"));
         }
+
+        [Fact]
+        public void A_stack_through_the_beam_is_a_support_and_its_upper_part_is_still_a_load_at_the_same_place()
+        {
+            ScaffoldElement Std(string id, double x, double z0, double z1) => new ScaffoldElement
+            {
+                Id = id, Kind = ElementKind.Standard, Start = new Vec3(x, 0, z0), End = new Vec3(x, 0, z1), ZMin = z0, ZMax = z1, WeightKg = 8,
+            };
+            var beam = new ScaffoldElement
+            {
+                Id = "BM", Kind = ElementKind.Beam, Description = "SRU 147", Start = new Vec3(0, 0, 1120), End = new Vec3(1472, 0, 1120),
+                Width = 162, ZMin = 1000, ZMax = 1240, WeightKg = 38,
+            };
+            var all = new List<ScaffoldElement> { beam, Std("A", 300, 0, 1100), Std("B", 300, 1100, 2000), Std("C", 1200, 1240, 2240) };
+            var r = BatchAnalyzer.Run(all, new BeamCheckSettings(), new BatchOptions()).Single();
+
+            var support = Assert.Single(r.Supports);
+            Assert.Equal(300, support.Position, 0);
+            Assert.Equal(2, r.Loads.Count);                       // the stack above the support and the stand at 1200
+            Assert.Contains(r.Loads, l => Math.Abs(l.Position - support.Position) < 1);
+            Assert.False(r.ContinuousSupport);
+        }
     }
 }

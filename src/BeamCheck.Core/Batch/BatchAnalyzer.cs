@@ -102,8 +102,9 @@ namespace BeamCheck.Core.Batch
             var analyzer = new ScaffoldAnalyzer(s);
             var supports = analyzer.FindSupports(beam, standards);
 
-            // Standards standing on the beam (their foot at its top). A stack that passes through the beam is its support.
-            var picked = standards.Where(st => StandsOn(beam, st, s) && !supports.Any(sp => Vec3.DistanceXY(sp.Column.Axis, st.Start) <= s.ColumnXYTolerance)).ToList();
+            // Standards standing on the beam (their foot at its top). A stack that passes through the beam still loads it with
+            // the part above: that load is listed with the support under it.
+            var picked = standards.Where(st => StandsOn(beam, st, s)).ToList();
 
             var points = new List<PointLoad>();
             var notes = new List<string>();

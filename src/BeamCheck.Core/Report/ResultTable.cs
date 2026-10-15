@@ -68,7 +68,7 @@ namespace BeamCheck.Core.Report
                 .Where(l => l.Factor > 0)
                 .GroupBy(l => l.Level.Index)
                 .OrderBy(g => g.Key)
-                .Select(g => "Ebene " + g.Key + " (Z=" + f.Mm(g.First().Level.Z) + "): " + f.Num(g.First().Factor * 100, 0) + " %")
+                .Select(g => "Ebene " + g.Key + " (H=" + f.Mm(g.First().Level.Height) + " über OK Träger): " + f.Num(g.First().Factor * 100, 0) + " %")
                 .ToList();
             if (levelNotes.Count > 0)
                 t.Notes.Add("Nutzlast angesetzt auf: " + string.Join("; ", levelNotes) + " (Fläche unter Nutzlast " + f.Num(loaded, 2)

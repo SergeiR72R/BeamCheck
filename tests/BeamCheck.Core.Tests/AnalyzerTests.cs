@@ -41,6 +41,17 @@ namespace BeamCheck.Core.Tests
         }
 
         [Fact]
+        public void Level_height_is_measured_from_the_top_of_the_checked_beam()
+        {
+            var b = ScaffoldBuilder.Example(2000, 4000);
+            var session = new BeamLoadSession(AllLevels, b.Input());
+            session.Recalculate();
+            var beam = session.Topology.Beam;
+            Assert.NotEmpty(session.Topology.Levels);
+            Assert.All(session.Topology.Levels, l => Assert.Equal(l.Z - beam.ZMax, l.Height, 6));
+        }
+
+        [Fact]
         public void Service_load_uses_load_class()
         {
             var r = Run(ScaffoldBuilder.Example(2000, 4000), AllLevels, loadClass: 3);

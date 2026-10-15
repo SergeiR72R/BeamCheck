@@ -29,9 +29,9 @@ namespace BeamCheck.Core.Tests
             [DataMember(Name = "kind")] public string Kind { get; set; }
         }
 
-        public static List<ScaffoldElement> Load(BeamCheckSettings settings)
+        public static List<ScaffoldElement> Load(BeamCheckSettings settings, string fixture = "peri24_test5.json.gz")
         {
-            string path = Path.Combine(Path.GetDirectoryName(typeof(Test5Tests).Assembly.Location), "Fixtures", "peri24_test5.json.gz");
+            string path = Path.Combine(Path.GetDirectoryName(typeof(Test5Tests).Assembly.Location), "Fixtures", fixture);
             List<Part> parts;
             using (var gz = new GZipStream(File.OpenRead(path), CompressionMode.Decompress))
                 parts = (List<Part>)new DataContractJsonSerializer(typeof(List<Part>)).ReadObject(gz);
@@ -71,6 +71,29 @@ namespace BeamCheck.Core.Tests
             foreach (var (pos, want) in r.Loads.Select(x => x.Position).Zip(new[] { 554.0, 2303, 3801, 4303, 4802, 5801 }, (a, b) => (a, b)))
                 Assert.InRange(pos, want - 3, want + 3);
             Assert.Equal("ABCDEF", string.Concat(r.Loads.Select(x => x.Label)));
+        }
+
+        [Fact]
+        public void A_ledger_fixed_to_the_tip_of_a_console_passes_its_deck_and_own_weight_to_the_console_root()
+        {
+            var s = new BeamCheckSettings();
+            var reports = BatchAnalyzer.Run(Load(s, "peri24_test5b.json.gz"), s, new BatchOptions());
+            foreach (var r in reports)
+            {
+                _out.WriteLine(r.Name + " L=" + r.Length.ToString("0") + " supports " + string.Join(",", r.Supports.Select(x => x.Position.ToString("0"))));
+                foreach (var l in r.Loads)
+                    _out.WriteLine("  " + l.Label + " @" + l.Position.ToString("0") + " Gk=" + l.Gk.ToString("0.00") + " Qk=" + l.Qk.ToString("0.00") + " A=" + l.AreaM2.ToString("0.000") + " | " + l.Detail);
+            }
+
+            // Left beam: its standards carry the consoles, and the ledgers fixed to the console tips with the decks on them.
+            // Right beam: the standards at the other ends of the same ledgers. By symmetry both take the same deck area, half of it each.
+            var left = reports.OrderBy(x => x.StartX).First();
+            var right = reports.OrderBy(x => x.StartX).Last();
+            Assert.Equal(2, left.Loads.Count);
+            Assert.Equal(2, right.Loads.Count);
+            foreach (var l in left.Loads.Concat(right.Loads))
+                Assert.Equal(0.233, l.AreaM2, 2);
+            Assert.True(left.Loads[0].Gk > right.Loads[0].Gk, "the console adds its own weight on the left");
         }
     }
 }

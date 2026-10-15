@@ -102,7 +102,7 @@ namespace BeamCheck.Cad.UI
 
             _levels = Grid();
             _levels.Columns.Add("level", "Ebene");
-            _levels.Columns.Add("z", "Höhe, mm");
+            _levels.Columns.Add("z", "Höhe über OK Träger, mm");
             _levels.Columns.Add("area", "Belagfläche auf den Ständern, m²");
             _levels.Columns.Add("factor", "Nutzlast, % q");
             foreach (DataGridViewColumn c in _levels.Columns)
@@ -233,7 +233,7 @@ namespace BeamCheck.Cad.UI
             foreach (var level in _session.Topology.Levels)
             {
                 _session.Options.LevelFactors.TryGetValue(level.Index, out double f);
-                int i = _levels.Rows.Add(level.Index, _nf.Mm(level.Z), _nf.Num(_session.LevelArea(level), 2), _nf.Num(f * 100, 0));
+                int i = _levels.Rows.Add(level.Index, _nf.Mm(level.Height), _nf.Num(_session.LevelArea(level), 2), _nf.Num(f * 100, 0));
                 _levels.Rows[i].Tag = level.Index;
             }
 

@@ -46,7 +46,10 @@ namespace BeamCheck.Core.Analysis
         /// <summary>Deck bottom elevation, mm.</summary>
         public double Z { get; set; }
 
-        public override string ToString() => $"Level {Index} (Z={Z:0})";
+        /// <summary>Deck bottom above the top of the checked beam or ledger, mm. This is the height shown in the summary.</summary>
+        public double Height { get; set; }
+
+        public override string ToString() => $"Level {Index} (H={Height:0})";
     }
 
     public enum ContributionType

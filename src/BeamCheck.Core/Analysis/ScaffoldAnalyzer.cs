@@ -52,6 +52,7 @@ namespace BeamCheck.Core.Analysis
         private List<ScaffoldElement> _ledgers = new List<ScaffoldElement>();
         private List<Column> _standRuns = new List<Column>();
         private readonly Dictionary<string, Column> _consoleRoots = new Dictionary<string, Column>();
+        private List<ScaffoldElement> _consoleList = new List<ScaffoldElement>();
         private readonly List<Column> _directContacts = new List<Column>();
         private ScaffoldElement _member;
 
@@ -94,6 +95,7 @@ namespace BeamCheck.Core.Analysis
             upper.AddRange(FindBeamsPassingThroughColumns(all, topo.Columns, input.Beam, upper));
             // A console is a cantilever with a single support, its root: a beam that takes everything to one column.
             var consoles = all.Where(e => e.Kind == ElementKind.Console).ToList();
+            _consoleList = consoles;
             upper.AddRange(consoles);
             FindUpperBeams(topo, upper, standards, active);
             foreach (var link in topo.UpperBeams)
@@ -702,7 +704,7 @@ namespace BeamCheck.Core.Analysis
                 {
                     foreach (var r in ResolveNode(topo, columns, e, end, 0.5, 0))
                     {
-                        sink.Add(new Contribution { Column = r.Column, Source = e, Type = type, Share = r.Share });
+                        sink.Add(new Contribution { Column = r.Column, Source = e, Type = type, Share = r.Share, ViaBeam = r.ViaBeam });
                         topo.UsedElementIds.Add(e.Id);
                     }
                 }
@@ -713,6 +715,9 @@ namespace BeamCheck.Core.Analysis
         {
             public Column Column;
             public double Share;
+
+            /// <summary>Set when the load first goes through a console (a cantilever fixed to <see cref="Column"/>).</summary>
+            public ScaffoldElement ViaBeam;
         }
 
         /// <summary>
@@ -730,6 +735,15 @@ namespace BeamCheck.Core.Analysis
                 return result;
             }
 
+            // A ledger fixed to a console, at its tip or on either side of it: the console is a cantilever, so the
+            // end load goes down the standard the console is fixed to.
+            var console = FindConsoleAt(node, out var root);
+            if (console != null)
+            {
+                result.Add(new NodeShare { Column = root, Share = share, ViaBeam = console });
+                return result;
+            }
+
             // An end that stands on ANY standard is a stand node, never a connector on a passing ledger.
             if (depth >= _s.LedgerOnLedgerDepth || !_s.LedgerOnLedgerEnabled || IsOnAnyStandard(node))
                 return result;
@@ -743,6 +757,32 @@ namespace BeamCheck.Core.Analysis
             if (result.Count > 0)
                 topo.UsedElementIds.Add(support.Id);
             return result;
+        }
+
+        /// <summary>The console (with a root standard in this check) that a ledger end at <paramref name="node"/> is fixed to.</summary>
+        private ScaffoldElement FindConsoleAt(Vec3 node, out Column root)
+        {
+            root = null;
+            ScaffoldElement best = null;
+            double bestDist = double.MaxValue;
+            foreach (var kv in _consoleList)
+            {
+                var c = kv;
+                if (!_consoleRoots.TryGetValue(c.Id, out var r) || r == null)
+                    continue;
+                if (node.Z < c.ZMin - _s.ConsoleLedgerTolerance || node.Z > c.ZMax + _s.ConsoleLedgerTolerance)
+                    continue;
+                double along = PlanGeometry.ProjectXY(c.Start, c.End, node, out double d) * c.PlanLength;
+                if (along < -_s.ConsoleLedgerTolerance || along > c.PlanLength + _s.ConsoleLedgerTolerance)
+                    continue; // beyond the console's ends: the projection onto its line is not on the part
+                if (d > _s.ConsoleLedgerTolerance || d >= bestDist)
+                    continue;
+                best = c;
+                bestDist = d;
+                root = r;
+            }
+
+            return best;
         }
 
         private bool IsOnAnyStandard(Vec3 p)
@@ -947,8 +987,10 @@ namespace BeamCheck.Core.Analysis
                 return;
             foreach (var r in ResolveNode(topo, columns, ledger, node, share, 0))
             {
-                target.Add(new Contribution { Column = r.Column, Source = deck, Via = ledger, Type = ContributionType.Deck, Share = r.Share });
+                target.Add(new Contribution { Column = r.Column, Source = deck, Via = ledger, Type = ContributionType.Deck, Share = r.Share, ViaBeam = r.ViaBeam });
                 topo.UsedElementIds.Add(ledger.Id);
+                if (r.ViaBeam != null)
+                    topo.UsedElementIds.Add(r.ViaBeam.Id);
             }
         }
 
@@ -1026,7 +1068,7 @@ namespace BeamCheck.Core.Analysis
             foreach (double z in zs)
             {
                 if (topo.Levels.Count == 0 || z - topo.Levels[topo.Levels.Count - 1].Z > _s.LevelZTolerance)
-                    topo.Levels.Add(new Level { Index = topo.Levels.Count + 1, Z = z });
+                    topo.Levels.Add(new Level { Index = topo.Levels.Count + 1, Z = z, Height = z - topo.Beam.ZMax });
             }
 
             foreach (var c in deckContribs)

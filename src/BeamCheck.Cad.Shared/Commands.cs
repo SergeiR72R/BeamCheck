@@ -34,7 +34,16 @@ namespace BeamCheck.Cad
         /// then insert the 2D load scheme and the table into the drawing.
         /// </summary>
         [CommandMethod("BEAMLOAD", CommandFlags.Modal)]
-        public void BeamLoad()
+        public void BeamLoad() => BeamLoadCore(false);
+
+        /// <summary>
+        /// Service command: the same selection as BEAMLOAD (beam, standards, upper beams), then no dialog: every part
+        /// that entered the calculation is copied into a separate DWG file next to the drawing.
+        /// </summary>
+        [CommandMethod("BEAMEXPORT", CommandFlags.Modal)]
+        public void BeamExport() => BeamLoadCore(true);
+
+        private void BeamLoadCore(bool exportOnly)
         {
             var doc = CadApp.DocumentManager.MdiActiveDocument;
             if (doc == null)
@@ -152,6 +161,13 @@ namespace BeamCheck.Cad
                 tr.Commit();
             }
 
+            if (exportOnly)
+            {
+                session.Recalculate();
+                ExportUsed(doc, session, idMap);
+                return;
+            }
+
             RunDialogLoop(doc, session, classifier, toMm, idMap);
         }
 
@@ -212,6 +228,10 @@ namespace BeamCheck.Cad
 
                     case FormAction.Add:
                         AddObjects(doc, session, classifier, toMm, idMap);
+                        break;
+
+                    case FormAction.ExportDwg:
+                        ExportUsed(doc, session, idMap);
                         break;
 
                     case FormAction.Insert:

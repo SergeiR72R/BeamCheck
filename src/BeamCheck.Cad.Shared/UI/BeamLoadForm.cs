@@ -17,6 +17,7 @@ namespace BeamCheck.Cad.UI
         Highlight,
         Exclude,
         Add,
+        ExportDwg,
     }
 
     /// <summary>
@@ -133,6 +134,7 @@ namespace BeamCheck.Cad.UI
                 MakeButton("Objekte hinzufügen…", FormAction.Add),
                 MakeButton("Objekte ausschließen…", FormAction.Exclude),
                 MakeButton("Im Modell zeigen…", FormAction.Highlight),
+                MakeButton("In neue DWG kopieren…", FormAction.ExportDwg),
             });
             root.Controls.Add(buttons);
             AcceptButton = insert;

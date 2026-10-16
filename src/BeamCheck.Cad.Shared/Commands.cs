@@ -230,6 +230,10 @@ namespace BeamCheck.Cad
                         AddObjects(doc, session, classifier, toMm, idMap);
                         break;
 
+                    case FormAction.Breakdown:
+                        WriteBreakdown(doc, session);
+                        break;
+
                     case FormAction.ExportDwg:
                         ExportUsed(doc, session, idMap);
                         break;

@@ -68,6 +68,28 @@ namespace BeamCheck.Cad
             }
         }
 
+        /// <summary>
+        /// Writes the calculation path (Gk and Qk by kind of part, by level and by transferring beam) as a CSV next to the drawing:
+        /// semicolon separated, UTF-8 with BOM, opens in Excel.
+        /// </summary>
+        private static void WriteBreakdown(Document doc, BeamLoadSession session)
+        {
+            var ed = doc.Editor;
+            try
+            {
+                string path = Path.ChangeExtension(TargetPath(doc.Database, session).Replace("_Lastermittlung_", "_Rechenweg_"), ".csv");
+                var lines = BeamCheck.Core.Report.CalculationBreakdown.Build(session);
+                File.WriteAllLines(path, lines, new System.Text.UTF8Encoding(true));
+                foreach (var l in lines)
+                    Plugin.Log("RECHENWEG " + l);
+                ed.WriteMessage("\nRechenweg gespeichert: " + path);
+            }
+            catch (System.Exception ex)
+            {
+                ed.WriteMessage("\nDer Rechenweg konnte nicht gespeichert werden: " + ex.Message);
+            }
+        }
+
         /// <summary>Next to the drawing (documents folder when it has not been saved): drawing name, beam, time stamp.</summary>
         private static string TargetPath(Database db, BeamLoadSession session)
         {

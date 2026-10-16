@@ -52,6 +52,24 @@ namespace BeamCheck.Core.Tests
         }
 
         [Fact]
+        public void Breakdown_adds_up_to_the_loads_of_the_dialog()
+        {
+            var b = ScaffoldBuilder.Example(2000, 4000);
+            var session = new BeamLoadSession(AllLevels, b.Input());
+            session.Recalculate();
+            var lines = BeamCheck.Core.Report.CalculationBreakdown.Build(session);
+            var de = System.Globalization.CultureInfo.GetCultureInfo("de-DE");
+
+            var sum = lines.First(l => l.StartsWith("Summe Gk;"));
+            Assert.Equal(session.Result.Points.Sum(p => p.Gk), double.Parse(sum.Split(';')[3], de), 1);
+
+            // the live loads of the level table add up to the live loads of the points
+            var levelSum = lines.First(l => l.StartsWith("Summe;"));
+            Assert.Equal(session.Result.Points.Sum(p => p.Qk), double.Parse(levelSum.Split(';')[5], de), 1);
+            Assert.Equal(session.Result.Points.Sum(p => p.AreaM2), double.Parse(levelSum.Split(';')[2], de), 2);
+        }
+
+        [Fact]
         public void Service_load_uses_load_class()
         {
             var r = Run(ScaffoldBuilder.Example(2000, 4000), AllLevels, loadClass: 3);

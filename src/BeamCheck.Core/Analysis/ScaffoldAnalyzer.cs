@@ -106,6 +106,8 @@ namespace BeamCheck.Core.Analysis
             {
                 int before = topo.UpperBeams.Count + active.Count;
                 FindUpperBeams(topo, upper, standards, active);
+                foreach (var cl in topo.UpperBeams.Where(l => l.Beam.Kind == ElementKind.Console))
+                    _consoleRoots[cl.Beam.Id] = cl.Supports.Select(x => x.Column).FirstOrDefault(c => c != null);
                 FindPinLedgers(topo, all, standards, active);
                 if (topo.UpperBeams.Count + active.Count == before)
                     break;
@@ -315,6 +317,17 @@ namespace BeamCheck.Core.Analysis
             }
         }
 
+        /// <summary>
+        /// The stack carries the beam: it ends under it and reaches up to it. A console hangs down from its top rail
+        /// (an ECM is over a metre deep), so for a console the top is what has to be inside the stack.
+        /// </summary>
+        private bool ReachesBeam(Column run, ScaffoldElement u)
+        {
+            if (u.Kind == ElementKind.Console)
+                return run.ZBottom < u.ZMax - FootAllowance && u.ZMax <= run.ZTop + _s.UpperBeamBearingTolerance;
+            return run.ZBottom < u.ZMin - FootAllowance && u.ZMin <= run.ZTop + _s.UpperBeamBearingTolerance;
+        }
+
         private static bool SameStack(Column a, Column b, double tol) =>
             Vec3.DistanceXY(a.Axis, b.Axis) <= tol && a.ZBottom <= b.ZTop && b.ZBottom <= a.ZTop;
 
@@ -343,7 +356,7 @@ namespace BeamCheck.Core.Analysis
                     {
                         // The beam rests on (or inside the head of) this stack.
                         // A stack that starts at the beam (its head or a post on it) stands on the beam, it does not carry it.
-                        if (!(run.ZBottom < u.ZMin - FootAllowance && u.ZMin <= run.ZTop + _s.UpperBeamBearingTolerance))
+                        if (!ReachesBeam(run, u))
                             continue;
                         if (!OnBeamFootprint(u, run.Axis, out double pos))
                             continue;
@@ -475,8 +488,8 @@ namespace BeamCheck.Core.Analysis
                         continue;
                     var supports = new List<BeamSupport>
                     {
-                        new BeamSupport { Column = FindColumnAt(active, l.Start), Position = 0 },
-                        new BeamSupport { Column = FindColumnAt(active, l.End), Position = l.PlanLength },
+                        new BeamSupport { Column = FindColumnAt(active, l.Start) ?? ConsoleRootAt(l.Start), Position = 0 },
+                        new BeamSupport { Column = FindColumnAt(active, l.End) ?? ConsoleRootAt(l.End), Position = l.PlanLength },
                     };
                     if (supports.All(x => x.Column == null))
                         continue;
@@ -489,7 +502,7 @@ namespace BeamCheck.Core.Analysis
                         double along = t * l.PlanLength;
                         if (off > Math.Max(l.Width / 2, 30) + tol || along < _s.LedgerOnLedgerEndClearance || along > l.PlanLength - _s.LedgerOnLedgerEndClearance)
                             continue;
-                        if (pin.ZMax < l.ZMin - 50 || pin.ZMin > l.ZMax + 150)
+                        if (pin.ZMax < l.ZMin - 50 || pin.ZMin > l.ZMax + 50)
                             continue;
                         foreach (var run in runs)
                         {
@@ -884,6 +897,13 @@ namespace BeamCheck.Core.Analysis
             return best;
         }
 
+        /// <summary>The standard a console at <paramref name="node"/> is fixed to (a ledger end on a console goes there), or null.</summary>
+        private Column ConsoleRootAt(Vec3 node)
+        {
+            FindConsoleAt(node, out var root);
+            return root;
+        }
+
         private bool IsOnAnyStandard(Vec3 p)
         {
             foreach (var run in _standRuns)
@@ -917,10 +937,11 @@ namespace BeamCheck.Core.Analysis
                 if (Math.Abs(from.ZMax - l.ZMax) > _s.LedgerOnLedgerHeight)
                     continue;
                 // Only a ledger attached to one of the selected standards can carry a hanging ledger for them.
-                if (FindColumnAt(columns, l.Start) == null && FindColumnAt(columns, l.End) == null)
+                if (FindColumnAt(columns, l.Start) == null && FindColumnAt(columns, l.End) == null
+                    && FindConsoleAt(l.Start, out _) == null && FindConsoleAt(l.End, out _) == null)
                     continue;
                 double tt = PlanGeometry.ProjectXY(l.Start, l.End, node, out double dist);
-                if (dist > _s.NodeTolerance || dist >= bestDist)
+                if (dist > _s.CouplerTolerance || dist >= bestDist)
                     continue;
                 double along = tt * l.PlanLength;
                 if (along < _s.LedgerOnLedgerEndClearance || along > l.PlanLength - _s.LedgerOnLedgerEndClearance)

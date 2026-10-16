@@ -1,5 +1,5 @@
 {
-  "SettingsVersion": 22,
+  "SettingsVersion": 23,
   "LoadClasses": [
     {
       "Class": 1,
@@ -50,7 +50,7 @@
   "DeckSnapDistance": 300,
   "DeckSnapHeight": 300,
   "LedgerOnLedgerEnabled": true,
-  "LedgerOnLedgerHeight": 250,
+  "LedgerOnLedgerHeight": 50,
   "LedgerOnLedgerEndClearance": 150,
   "LedgerOnLedgerDepth": 1,
   "StandardKgPerM": 5.5,
@@ -71,7 +71,7 @@
     },
     {
       "Kind": "Console",
-      "Pattern": "(?i)(konsole|console|консол|(?<![A-Z0-9])UCM(?![A-Z]))"
+      "Pattern": "(?i)(konsole|console|консол|(?<![A-Z0-9])(UCM|ECM)(?![A-Z]))"
     },
     {
       "Kind": "Deck",
@@ -136,11 +136,12 @@
   "SupportPlanTolerance": 40,
   "PeriDisplayBlockPattern": "^PERI_(\\d{6}(?:-\\d+)?)_PartDisplayName_(.+)$",
   "SupportEndPartPattern": "(?i)(spindel|(?<![a-z])uva(?![a-z])|spindle|ujb|wirbelmutter|zapfen|fu(ß|ss)platte|fu(ß|ss)spindel|base ?plate|(?<!\\d)(116761|116762|100480|100412|100409|100481|715198|019780|100159|130684|130681|136779)(?!\\d))",
-  "ConsoleLedgerTolerance": 10,
+  "ConsoleLedgerTolerance": 50,
   "PeriAxisBlockSuffix": "Line",
   "IgnoreDxfPattern": "(?i)GRUPPE|_GROUP|MANAGER|DISPREP|DISP_REP",
   "PinPattern": "(?i)(zapfen|(?<!\\d)(130681|130684)(?!\\d))",
-  "PinPlanTolerance": 60,
+  "PinPlanTolerance": 50,
+  "CouplerTolerance": 50,
   "TextHeight": 2.5,
   "Scale": 50,
   "Layer": "BEAMLOAD",

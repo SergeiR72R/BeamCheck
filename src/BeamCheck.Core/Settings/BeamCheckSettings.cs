@@ -17,7 +17,7 @@ namespace BeamCheck.Core.Settings
         }
 
         /// <summary>Bumped when defaults change in a way old settings files must not keep.</summary>
-        public const int CurrentVersion = 22;
+        public const int CurrentVersion = 23;
 
         [DataMember(Order = 0)] public int SettingsVersion { get; set; }
 
@@ -123,6 +123,12 @@ namespace BeamCheck.Core.Settings
 
         /// <summary>A pin counts as sitting on a ledger when its axis is this close to the ledger axis (plan, mm), and a stack as standing on it.</summary>
         [DataMember(Order = 77)] public double PinPlanTolerance { get; set; }
+
+        /// <summary>
+        /// A ledger end that hangs on another ledger (by a UHA coupler) must be this close to the axis of the supporting ledger, in plan (mm).
+        /// The height tolerance is <see cref="LedgerOnLedgerHeight"/>.
+        /// </summary>
+        [DataMember(Order = 78)] public double CouplerTolerance { get; set; }
 
         /// <summary>
         /// A load on the overhang of an upper beam relieves its far support by statics. false (default) = that relief is not
@@ -263,7 +269,7 @@ namespace BeamCheck.Core.Settings
             DeckSnapEnabled = true;
             LedgerOnLedgerEnabled = true;
             LedgerOnLedgerDepth = 1;
-            LedgerOnLedgerHeight = 250;
+            LedgerOnLedgerHeight = 50;
             LedgerOnLedgerEndClearance = 150;
             DeckSnapDistance = 300;
             DeckSnapHeight = 300;
@@ -276,8 +282,9 @@ namespace BeamCheck.Core.Settings
             UpperBeamBearingTolerance = 30;
             SupportPlanTolerance = 40;
             SupportEndPartPattern = @"(?i)(spindel|(?<![a-z])uva(?![a-z])|spindle|ujb|wirbelmutter|zapfen|fu(ß|ss)platte|fu(ß|ss)spindel|base ?plate|(?<!\d)(116761|116762|100480|100412|100409|100481|715198|019780|100159|130684|130681|136779)(?!\d))";
-            ConsoleLedgerTolerance = 10;
-            PinPlanTolerance = 60;
+            ConsoleLedgerTolerance = 50;
+            PinPlanTolerance = 50;
+            CouplerTolerance = 50;
             PinPattern = @"(?i)(zapfen|(?<!\d)(130681|130684)(?!\d))";
             SearchRadius = 5000;
 
@@ -296,7 +303,7 @@ namespace BeamCheck.Core.Settings
             {
                 new RecognitionRule("BeamConnector", @"(?i)(schienenverbinder|rail ?connector|соединител)"),
                 new RecognitionRule("Beam", @"(?i)(gitterträger|gittertraeger|multiträger|multitraeger|träger|traeger|girder|балк|двутавр|(?<![A-Z0-9])(SRU|RCS|ULS|ULA|ELM|VT ?20|GT ?24|HEB|HEA|IPE|UPE)(?![A-Z]))"),
-                new RecognitionRule("Console", @"(?i)(konsole|console|консол|(?<![A-Z0-9])UCM(?![A-Z]))"),
+                new RecognitionRule("Console", @"(?i)(konsole|console|консол|(?<![A-Z0-9])(UCM|ECM)(?![A-Z]))"),
                 new RecognitionRule("Deck", @"(?i)(deck|belag|plattform|platform|настил|(?<![A-Z0-9])(UD[IGPLA]|UAP)(?![A-Z]))"),
                 new RecognitionRule("Diagonal", @"(?i)(diagonal|диагонал|(?<![A-Z0-9])(UBL|UVD)(?![A-Z]))"),
                 new RecognitionRule("Accessory", @"(?i)(toe ?board|bordbrett|guard ?rail|gel[aä]nder|ограж|борт|(?<![A-Z0-9])UHA(?![A-Z])|(?<![A-Z0-9])UH[ -]?Zapfen)"),

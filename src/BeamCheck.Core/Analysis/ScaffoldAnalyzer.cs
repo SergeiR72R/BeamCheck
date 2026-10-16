@@ -101,14 +101,21 @@ namespace BeamCheck.Core.Analysis
             var consoles = all.Where(e => e.Kind == ElementKind.Console).ToList();
             _consoleList = consoles;
             upper.AddRange(consoles);
-            FindUpperBeams(topo, upper, standards, active);
+            // Upper beams and ledgers with pins feed each other: a beam can lie on a stack that stands on a pin, a ledger end can sit on a stand on a beam.
+            for (int round = 0; round < 4; round++)
+            {
+                int before = topo.UpperBeams.Count + active.Count;
+                FindUpperBeams(topo, upper, standards, active);
+                FindPinLedgers(topo, all, standards, active);
+                if (topo.UpperBeams.Count + active.Count == before)
+                    break;
+            }
+
             foreach (var link in topo.UpperBeams)
             {
                 if (link.Beam.Kind == ElementKind.Console)
                     _consoleRoots[link.Beam.Id] = link.Supports.Select(x => x.Column).FirstOrDefault(c => c != null);
             }
-
-            FindPinLedgers(topo, all, standards, active);
 
             var sink = new List<Contribution>();
             foreach (var c in active)
@@ -320,7 +327,7 @@ namespace BeamCheck.Core.Analysis
             if (beams.Count == 0)
                 return;
             var runs = BuildRuns(standards);
-            var done = new HashSet<string>();
+            var done = new HashSet<string>(topo.UpperBeams.Select(l => l.Beam.Id));
             double tol = _s.ColumnXYTolerance;
 
             for (int pass = 0; pass < 5; pass++)

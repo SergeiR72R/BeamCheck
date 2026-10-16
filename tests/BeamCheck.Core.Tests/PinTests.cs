@@ -48,6 +48,32 @@ namespace BeamCheck.Core.Tests
         }
 
         [Fact]
+        public void A_beam_on_a_stack_that_stands_on_a_pin_is_found_and_passes_its_stands_down_through_the_ledger()
+        {
+            var beam = new ScaffoldElement
+            {
+                Id = "MAIN", Kind = ElementKind.Beam, Start = new Vec3(-500, 0, -100), End = new Vec3(4500, 0, -100), Width = 200, ZMin = -200, ZMax = 0,
+            };
+            var els = new List<ScaffoldElement>
+            {
+                Std(0, 0, 2000, 10), Std(0, 2000, 4000, 10), Std(4000, 0, 2000, 10), Std(4000, 2000, 4000, 10),
+                new ScaffoldElement { Id = "L", Kind = ElementKind.Ledger, Description = "UH 400", Start = new Vec3(0, 0, 2000), End = new Vec3(4000, 0, 2000), Width = 50, ZMin = 1975, ZMax = 2025, WeightKg = 0 },
+                Std(1000, 2250, 4250, 40),
+                new ScaffoldElement { Id = "PIN", Kind = ElementKind.Accessory, Article = "130681", Description = "UH Zapfen", Start = new Vec3(1000, 21, 2086), End = new Vec3(1000, -21, 2086), Width = 40, ZMin = 1903, ZMax = 2270, WeightKg = 0 },
+                // a beam on top of the pin stack, and a stand on that beam
+                new ScaffoldElement { Id = "UB", Kind = ElementKind.Beam, Description = "UB", Start = new Vec3(0, 0, 4350), End = new Vec3(2000, 0, 4350), Width = 200, ZMin = 4250, ZMax = 4450, WeightKg = 20 },
+                Std(1500, 4450, 6450, 100),
+            };
+            var selected = els.Where(e => e.Kind == ElementKind.Standard && e.ZMin == 0).ToList();
+            var s = new BeamLoadSession(new BeamCheckSettings { LevelMode = LevelModes.AllLevels }, new AnalysisInput { Beam = beam, SelectedStandards = selected, Candidates = els });
+            var r = s.Result;
+            // pin stack 40 + beam 20 + stand 100 = 160 kg on the ledger at 1000 mm: 75 % to the left end, 25 % to the right end
+            Assert.Equal(LoadCalculator.KgToKn(20 + 0.75 * 160), r.Points[0].Gk, 6);
+            Assert.Equal(LoadCalculator.KgToKn(20 + 0.25 * 160), r.Points[1].Gk, 6);
+            Assert.Equal(2, s.Topology.Transfers.Select(t => t.Link).Distinct().Count());
+        }
+
+        [Fact]
         public void Without_a_pin_the_stack_carries_nothing_to_the_ledger()
         {
             var r = Run(1000, withPin: false).Result;

@@ -17,7 +17,7 @@ namespace BeamCheck.Core.Settings
         }
 
         /// <summary>Bumped when defaults change in a way old settings files must not keep.</summary>
-        public const int CurrentVersion = 21;
+        public const int CurrentVersion = 22;
 
         [DataMember(Order = 0)] public int SettingsVersion { get; set; }
 
@@ -114,6 +114,15 @@ namespace BeamCheck.Core.Settings
 
         /// <summary>A ledger end this close (plan, mm; also in height) to a console is fixed to it, at the tip or at its side.</summary>
         [DataMember(Order = 74)] public double ConsoleLedgerTolerance { get; set; }
+
+        /// <summary>
+        /// Parts that are a pin (UH Zapfen, UHA Zapfen). A stack standing on such a pin on a ledger passes its whole load to that ledger,
+        /// at the position of the pin; the ledger gives it to its ends by the lever rule.
+        /// </summary>
+        [DataMember(Order = 76)] public string PinPattern { get; set; }
+
+        /// <summary>A pin counts as sitting on a ledger when its axis is this close to the ledger axis (plan, mm), and a stack as standing on it.</summary>
+        [DataMember(Order = 77)] public double PinPlanTolerance { get; set; }
 
         /// <summary>
         /// A load on the overhang of an upper beam relieves its far support by statics. false (default) = that relief is not
@@ -268,6 +277,8 @@ namespace BeamCheck.Core.Settings
             SupportPlanTolerance = 40;
             SupportEndPartPattern = @"(?i)(spindel|(?<![a-z])uva(?![a-z])|spindle|ujb|wirbelmutter|zapfen|fu(ß|ss)platte|fu(ß|ss)spindel|base ?plate|(?<!\d)(116761|116762|100480|100412|100409|100481|715198|019780|100159|130684|130681|136779)(?!\d))";
             ConsoleLedgerTolerance = 10;
+            PinPlanTolerance = 60;
+            PinPattern = @"(?i)(zapfen|(?<!\d)(130681|130684)(?!\d))";
             SearchRadius = 5000;
 
             StandardKgPerM = 5.5;

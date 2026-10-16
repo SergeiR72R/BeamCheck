@@ -67,6 +67,20 @@ namespace BeamCheck.Core.Tests
             var levelSum = lines.First(l => l.StartsWith("Summe;"));
             Assert.Equal(session.Result.Points.Sum(p => p.Qk), double.Parse(levelSum.Split(';')[5], de), 1);
             Assert.Equal(session.Result.Points.Sum(p => p.AreaM2), double.Parse(levelSum.Split(';')[2], de), 2);
+
+            // the origin of every area: deck, ledger, lever arm; the stated lever-rule share equals the share used
+            int at = lines.FindIndex(l => l.StartsWith("Ebene;Belag;"));
+            Assert.True(at > 0);
+            int checkedRows = 0;
+            foreach (var row in lines.Skip(at + 1).TakeWhile(l => l.Length > 0 && !l.StartsWith("Ständer ")).Select(l => l.Split(';')))
+            {
+                if (row.Length < 10 || row[6].Length == 0)
+                    continue;
+                Assert.Equal(double.Parse(row[6], de), double.Parse(row[7], de), 2);
+                checkedRows++;
+            }
+
+            Assert.True(checkedRows > 0);
         }
 
         [Fact]

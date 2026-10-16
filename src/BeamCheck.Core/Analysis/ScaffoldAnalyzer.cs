@@ -53,6 +53,8 @@ namespace BeamCheck.Core.Analysis
         private List<Column> _standRuns = new List<Column>();
         private readonly Dictionary<string, Column> _consoleRoots = new Dictionary<string, Column>();
         private List<ScaffoldElement> _consoleList = new List<ScaffoldElement>();
+        private readonly HashSet<string> _pinLedgerIds = new HashSet<string>();
+        private readonly HashSet<(BeamLink, Column)> _recordedTransfers = new HashSet<(BeamLink, Column)>();
         private readonly List<Column> _directContacts = new List<Column>();
         private ScaffoldElement _member;
 
@@ -69,6 +71,8 @@ namespace BeamCheck.Core.Analysis
             var topo = new Topology { Beam = input.Beam };
             _upliftWarned.Clear();
             _consoleRoots.Clear();
+            _pinLedgerIds.Clear();
+            _recordedTransfers.Clear();
             _directContacts.Clear();
             _member = input.DirectDecks ? input.Beam : null;
             bool Active(ScaffoldElement e) => e != null && !input.ExcludedIds.Contains(e.Id);
@@ -104,6 +108,8 @@ namespace BeamCheck.Core.Analysis
                     _consoleRoots[link.Beam.Id] = link.Supports.Select(x => x.Column).FirstOrDefault(c => c != null);
             }
 
+            FindPinLedgers(topo, all, standards, active);
+
             var sink = new List<Contribution>();
             foreach (var c in active)
             {
@@ -114,7 +120,8 @@ namespace BeamCheck.Core.Analysis
                 }
             }
 
-            var beamIds = new HashSet<string>(topo.UpperBeams.Select(l => l.Beam.Id));
+            // A ledger that carries stacks on pins stays a ledger (its decks and weight are counted as for any ledger).
+            var beamIds = new HashSet<string>(topo.UpperBeams.Where(l => !l.IsPinLedger).Select(l => l.Beam.Id));
             var ledgers = all.Where(e => e.Kind == ElementKind.Ledger && !beamIds.Contains(e.Id) && !IsSameBeam(e, input.Beam)).ToList();
             _ledgers = ledgers;
             _standRuns = BuildRuns(standards);
@@ -124,6 +131,8 @@ namespace BeamCheck.Core.Analysis
             AddUpperBeamWeights(topo, sink);
 
             topo.Warnings.Add(DescribeNeighbourhood(all, active));
+
+            topo.Collected.AddRange(sink);
 
             // Pass everything standing on upper beams down to the columns of the beam under check.
             foreach (var c in sink)
@@ -410,6 +419,8 @@ namespace BeamCheck.Core.Analysis
             const int n = 40;
             foreach (var link in topo.UpperBeams)
             {
+                if (link.IsPinLedger)
+                    continue; // a ledger: its weight is counted with the ledgers
                 var pos = link.Supports.Select(x => x.Position).ToArray();
                 double len = link.Beam.PlanLength;
                 var share = new double[pos.Length];
@@ -426,6 +437,85 @@ namespace BeamCheck.Core.Analysis
                         continue;
                     sink.Add(new Contribution { Column = link.Supports[i].Column, Source = link.Beam, Type = ContributionType.BeamSelfWeight, Share = share[i], ViaBeam = link.Beam });
                 }
+            }
+        }
+
+        /// <summary>
+        /// A stack standing on a pin (UH Zapfen, UHA Zapfen) that sits in the middle of a ledger puts its whole load on that ledger, at the pin;
+        /// the ledger gives it to its two ends by the lever rule, and the ends go on as usual (standards of the checked member, stands on upper beams).
+        /// The ledger is handled like an upper beam with two supports, its ends.
+        /// </summary>
+        private void FindPinLedgers(Topology topo, List<ScaffoldElement> all, List<ScaffoldElement> standards, List<Column> active)
+        {
+            if (string.IsNullOrEmpty(_s.PinPattern))
+                return;
+            var rx = new System.Text.RegularExpressions.Regex(_s.PinPattern, System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+            var pins = all.Where(e => e.Kind == ElementKind.Accessory && rx.IsMatch((e.Article ?? "") + " " + (e.Description ?? ""))).ToList();
+            if (pins.Count == 0)
+                return;
+
+            var runs = BuildRuns(standards);
+            var taken = new HashSet<string>(topo.UpperBeams.Select(l => l.Beam.Id));
+            var ledgers = all.Where(e => e.Kind == ElementKind.Ledger && e.PlanLength > 1 && !taken.Contains(e.Id) && e.Id != topo.Beam.Id).ToList();
+            double tol = _s.PinPlanTolerance;
+
+            for (int pass = 0; pass < 3; pass++)
+            {
+                bool progress = false;
+                foreach (var l in ledgers)
+                {
+                    if (_pinLedgerIds.Contains(l.Id))
+                        continue;
+                    var supports = new List<BeamSupport>
+                    {
+                        new BeamSupport { Column = FindColumnAt(active, l.Start), Position = 0 },
+                        new BeamSupport { Column = FindColumnAt(active, l.End), Position = l.PlanLength },
+                    };
+                    if (supports.All(x => x.Column == null))
+                        continue;
+
+                    var link = new BeamLink { Beam = l, IsPinLedger = true };
+                    foreach (var pin in pins)
+                    {
+                        var mid = (pin.Start + pin.End) / 2;
+                        double t = PlanGeometry.ProjectXY(l.Start, l.End, mid, out double off);
+                        double along = t * l.PlanLength;
+                        if (off > Math.Max(l.Width / 2, 30) + tol || along < _s.LedgerOnLedgerEndClearance || along > l.PlanLength - _s.LedgerOnLedgerEndClearance)
+                            continue;
+                        if (pin.ZMax < l.ZMin - 50 || pin.ZMin > l.ZMax + 150)
+                            continue;
+                        foreach (var run in runs)
+                        {
+                            if (Vec3.DistanceXY(run.Axis, mid) > tol || run.ZBottom < pin.ZMin - 50 || run.ZBottom > pin.ZMax + 100)
+                                continue;
+                            if (active.Any(c => SameStack(c, run, _s.ColumnXYTolerance)) || link.Loaded.Any(c => SameStack(c, run, _s.ColumnXYTolerance)))
+                                continue;
+                            run.SupportBeam = l;
+                            run.Position = along;
+                            run.OnBeam = true;
+                            run.Name = string.Format(CultureInfo.InvariantCulture, "{0}/{1:0}", l.DisplayName, along);
+                            link.Loaded.Add(run);
+                            link.PinOf[run] = pin;
+                            topo.UsedElementIds.Add(pin.Id);
+                        }
+                    }
+
+                    if (link.Loaded.Count == 0)
+                        continue;
+                    link.Supports.AddRange(supports);
+                    foreach (var run in link.Loaded)
+                        active.Add(run);
+                    _pinLedgerIds.Add(l.Id);
+                    topo.UpperBeams.Add(link);
+                    topo.UsedElementIds.Add(l.Id);
+                    progress = true;
+                    topo.Warnings.Add(string.Format(CultureInfo.InvariantCulture,
+                        "ℹ Riegel {0}: {1} Ständer stehen auf Zapfen — ihre gesamte Last geht auf den Riegel und nach der Lage des Zapfens zwischen den Auflagern ({2}) auf dessen Enden.",
+                        l.DisplayName, link.Loaded.Count, string.Join(" / ", link.Loaded.Select(c => c.Position.ToString("0", CultureInfo.InvariantCulture) + " mm"))));
+                }
+
+                if (!progress)
+                    break;
             }
         }
 
@@ -521,6 +611,8 @@ namespace BeamCheck.Core.Analysis
                 yield break;
 
             var f = Shares(link.Supports.Select(x => x.Position).ToArray(), c.Column.Position, link.Beam, topo);
+            if (_recordedTransfers.Add((link, c.Column)))
+                topo.Transfers.Add(new TransferInfo { Link = link, Stand = c.Column, Fractions = (double[])f.Clone() });
             for (int i = 0; i < f.Length; i++)
             {
                 if (link.Supports[i].Column == null || Math.Abs(f[i]) < 1e-9)

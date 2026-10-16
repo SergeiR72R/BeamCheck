@@ -115,6 +115,12 @@ namespace BeamCheck.Core.Analysis
 
         public List<string> Warnings { get; } = new List<string>();
 
+        /// <summary>What every column collected itself, before upper beams and pins passed it down (for the calculation path).</summary>
+        public List<Contribution> Collected { get; } = new List<Contribution>();
+
+        /// <summary>How each stand on an upper beam or on a pin was split among the supports of that beam or ledger.</summary>
+        public List<TransferInfo> Transfers { get; } = new List<TransferInfo>();
+
         /// <summary>IDs of all elements that contribute (for highlighting in CAD).</summary>
         public HashSet<string> UsedElementIds { get; } = new HashSet<string>();
     }
@@ -143,5 +149,21 @@ namespace BeamCheck.Core.Analysis
         public List<BeamSupport> Supports { get; } = new List<BeamSupport>();
 
         public List<Column> Loaded { get; } = new List<Column>();
+
+        /// <summary>A ledger that carries stacks standing on pins (not a beam): the pin of each loaded stack.</summary>
+        public bool IsPinLedger { get; set; }
+
+        public Dictionary<Column, ScaffoldElement> PinOf { get; } = new Dictionary<Column, ScaffoldElement>();
+    }
+
+    /// <summary>A stand on an upper beam (or a pin on a ledger) and the fractions of its load the supports take.</summary>
+    public sealed class TransferInfo
+    {
+        public BeamLink Link { get; set; }
+
+        public Column Stand { get; set; }
+
+        /// <summary>One fraction per support of the link, in the order of <see cref="BeamLink.Supports"/> (negative shares already set to 0 unless allowed).</summary>
+        public double[] Fractions { get; set; }
     }
 }

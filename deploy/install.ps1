@@ -7,8 +7,13 @@
           autoloader is switched off (APPAUTOLOAD).
     - BricsCAD-based PERI CAD 25/26: copies the bundle to %APPDATA%\BeamCheck and registers
       load-on-startup keys for every BricsCAD profile (V25 → net48, V26+ → net8).
+  Can be started from a network folder (\\server\share\BeamCheck\install.cmd). An update is the same double-click again.
   A log is written to %APPDATA%\BeamCheck\install.log.
 #>
+param(
+    [switch]$Silent,
+    [string]$SharePath = ""
+)
 $ErrorActionPreference = "Stop"
 $logDir = Join-Path $env:APPDATA "BeamCheck"
 New-Item -ItemType Directory -Force -Path $logDir | Out-Null
@@ -78,6 +83,11 @@ try {
             }
         }
     }
+
+    # --- remember the installed version (the share holds a VERSION file next to this script) ---
+    $share = if ($SharePath) { [IO.Path]::GetFullPath($SharePath) } else { $PSScriptRoot }
+    $versionFile = Join-Path $share "VERSION"
+    if (Test-Path $versionFile) { Copy-Item $versionFile (Join-Path $logDir "VERSION") -Force }
 
     Write-Host ""
     Write-Host "Fertig. PERI CAD neu starten: in der Befehlszeile muss erscheinen 'BeamCheck geladen'." -ForegroundColor Green

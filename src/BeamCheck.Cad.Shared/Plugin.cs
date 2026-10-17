@@ -23,6 +23,17 @@ namespace BeamCheck.Cad
         {
             Log("loaded " + typeof(Plugin).Assembly.Location + " into " + Environment.Version + " in " + System.Diagnostics.Process.GetCurrentProcess().ProcessName);
 
+#if !BRICSCAD
+            try
+            {
+                PeriRibbon.RegisterBeamCheck();
+            }
+            catch (System.Exception ex)
+            {
+                Log("ribbon registration failed: " + ex.Message);
+            }
+#endif
+
             // At startup (autoload) there is no drawing yet: announce on the first idle moment instead.
             CadApp.Idle += AnnounceOnce;
         }
@@ -43,7 +54,7 @@ namespace BeamCheck.Cad
         }
 
         /// <summary>Build tag shown in the dialog title, to tell which package is loaded.</summary>
-        public const string BuildTag = "v43";
+        public const string BuildTag = "v44";
 
         /// <summary>Appends a line to %APPDATA%\BeamCheck\BeamCheck.log (load diagnostics).</summary>
         public static void Log(string line)

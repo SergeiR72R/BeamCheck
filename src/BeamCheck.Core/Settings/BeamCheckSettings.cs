@@ -17,7 +17,7 @@ namespace BeamCheck.Core.Settings
         }
 
         /// <summary>Bumped when defaults change in a way old settings files must not keep.</summary>
-        public const int CurrentVersion = 23;
+        public const int CurrentVersion = 24;
 
         [DataMember(Order = 0)] public int SettingsVersion { get; set; }
 
@@ -129,6 +129,12 @@ namespace BeamCheck.Core.Settings
         /// The height tolerance is <see cref="LedgerOnLedgerHeight"/>.
         /// </summary>
         [DataMember(Order = 78)] public double CouplerTolerance { get; set; }
+
+        /// <summary>Beam proofs GT 24 / VT 20: the outer support counts as an end support when the girder runs on beyond it by at most this much (mm).</summary>
+        [DataMember(Order = 79)] public double GirderEndSupportOverhang { get; set; }
+
+        /// <summary>Beam proofs GT 24: the diagonals at the supports are in the favourable position (cases 1 and 3). The model does not show it: false = cases 2 and 4.</summary>
+        [DataMember(Order = 80, EmitDefaultValue = true)] public bool Gt24FavourableDiagonals { get; set; }
 
         /// <summary>
         /// A load on the overhang of an upper beam relieves its far support by statics. false (default) = that relief is not
@@ -285,6 +291,7 @@ namespace BeamCheck.Core.Settings
             ConsoleLedgerTolerance = 50;
             PinPlanTolerance = 50;
             CouplerTolerance = 50;
+            GirderEndSupportOverhang = 500;
             PinPattern = @"(?i)(zapfen|(?<!\d)(130681|130684)(?!\d))";
             SearchRadius = 5000;
 

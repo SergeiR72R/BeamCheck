@@ -1,5 +1,5 @@
 {
-  "SettingsVersion": 23,
+  "SettingsVersion": 24,
   "LoadClasses": [
     {
       "Class": 1,
@@ -142,6 +142,8 @@
   "PinPattern": "(?i)(zapfen|(?<!\\d)(130681|130684)(?!\\d))",
   "PinPlanTolerance": 50,
   "CouplerTolerance": 50,
+  "GirderEndSupportOverhang": 500,
+  "Gt24FavourableDiagonals": false,
   "TextHeight": 2.5,
   "Scale": 50,
   "Layer": "BEAMLOAD",

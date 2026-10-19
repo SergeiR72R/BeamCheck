@@ -293,6 +293,7 @@ namespace BeamCheck.Core.Batch
             }
 
             report.Notes.AddRange(notes);
+            report.Proof = Proofs.BeamProofs.Check(report, s);
             return report;
         }
 

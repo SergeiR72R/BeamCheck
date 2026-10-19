@@ -12,6 +12,18 @@ namespace BeamCheck.Core.Batch
 
         private static int I(double v) => (int)Math.Round(v);
 
+        private static string ProfileName(BeamReport r)
+        {
+            switch (r.Proof?.Profile)
+            {
+                case Proofs.BeamProfile.Sru: return "SRU";
+                case Proofs.BeamProfile.Rcs: return "RCS";
+                case Proofs.BeamProfile.Gt24: return "GT 24";
+                case Proofs.BeamProfile.Vt20: return "VT 20";
+                default: return "";
+            }
+        }
+
         /// <param name="pictures">Renders the picture of a beam as PNG with its size in pixels (null: no picture sheet).</param>
         public static XlsxBuilder Build(IList<BeamReport> reports, Func<BeamReport, Tuple<byte[], int, int>> pictures = null)
         {
@@ -21,7 +33,7 @@ namespace BeamCheck.Core.Batch
             overview.Rows.Add(new object[]
             {
                 "Balken", "Handle", "Artikel", "Bezeichnung", "Länge [mm]", "Höhe UK [mm]", "Höhe OK [mm]", "Mitte X [mm]", "Mitte Y [mm]", "Gewicht [kg]", "Auflager", "Lasten",
-                "Σ Lasten Fk [kN]", "max. Last Fk [kN]", "Auflage",
+                "Σ Lasten Fk [kN]", "max. Last Fk [kN]", "Auflage", "Profil", "η max", "maßgebend", "Nachweis",
             });
             foreach (var r in reports)
             {
@@ -29,10 +41,40 @@ namespace BeamCheck.Core.Batch
                 {
                     r.Name, string.Join(" + ", r.PartIds), r.Article ?? "", r.Description ?? "", I(r.Length), I(r.ZMin), I(r.ZMax), I(r.CenterX), I(r.CenterY), r.WeightKg, r.Supports.Count, r.Loads.Count,
                     r.TotalLoadFk, r.MaxLoadFk, r.ContinuousSupport ? "durchgehend (Untergrund)" : "Gelenklager (Ständer)",
+                    ProfileName(r), r.Proof != null && r.Proof.Done ? (object)Math.Round(r.Proof.MaxEta, 3) : null,
+                    r.Proof != null && r.Proof.Done ? r.Proof.Governing?.Name ?? "" : r.Proof?.Message ?? "", r.Proof?.Verdict ?? "kein Nachweis",
                 });
             }
 
-            overview.ColumnWidths.AddRange(new double[] { 10, 10, 10, 26, 11, 12, 12, 13, 13, 11, 9, 8, 14, 14, 22 });
+            overview.ColumnWidths.AddRange(new double[] { 10, 10, 10, 26, 11, 12, 12, 13, 13, 11, 9, 8, 14, 14, 22, 9, 8, 46, 14 });
+
+            var proofs = wb.AddSheet("Nachweise");
+            proofs.Rows.Add(new object[] { "Balken", "Profil", "Nachweis", "Ort vom linken Rand [mm]", "Ed", "Rd", "Einheit", "η", "erfüllt", "Hinweis" });
+            foreach (var r in reports)
+            {
+                var p = r.Proof;
+                if (p == null)
+                    continue;
+                if (!p.Done)
+                {
+                    proofs.Rows.Add(new object[] { r.Name, ProfileName(r), "kein Nachweis", null, null, null, "", null, "", p.Message ?? "" });
+                    continue;
+                }
+
+                foreach (var c in p.Checks)
+                {
+                    proofs.Rows.Add(new object[]
+                    {
+                        r.Name, ProfileName(r), c.Name, c.Position.HasValue ? (object)I(c.Position.Value) : null, Math.Round(c.Ed, 3), Math.Round(c.Rd, 3), c.Unit,
+                        Math.Round(c.Eta, 3), c.Ok ? "ja" : "NEIN", c.Note ?? "",
+                    });
+                }
+
+                foreach (var n in p.Notes)
+                    proofs.Rows.Add(new object[] { r.Name, ProfileName(r), "Hinweis", null, null, null, "", null, "", n });
+            }
+
+            proofs.ColumnWidths.AddRange(new double[] { 10, 8, 52, 14, 10, 10, 8, 8, 8, 70 });
 
             var positions = wb.AddSheet("Positionen");
             positions.Rows.Add(new object[]

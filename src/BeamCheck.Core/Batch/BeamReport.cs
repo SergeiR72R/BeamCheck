@@ -114,5 +114,8 @@ namespace BeamCheck.Core.Batch
 
         public double MaxLoadFk => Loads.Count == 0 ? 0 : Loads.Max(l => l.Fk);
 
+        /// <summary>Ultimate limit state proofs of the beam profile (SRU, RCS, GT 24, VT 20).</summary>
+        public Proofs.BeamProof Proof { get; set; }
+
     }
 }

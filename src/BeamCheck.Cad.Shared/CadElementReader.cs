@@ -67,6 +67,32 @@ namespace BeamCheck.Cad
         /// <summary>Element id → top-level entity (for highlighting).</summary>
         public Dictionary<string, ObjectId> TopLevelIds { get; } = new Dictionary<string, ObjectId>();
 
+        // ---- SPINDELLOAD hooks (unset for BEAMLOAD / BEAMBATCH: nothing changes there) ----
+
+        /// <summary>Article / name / block of a spindle (Fußspindel, Kopfspindel, UJB …). Matching parts are read as standards.</summary>
+        public Regex SpindleRx { get; set; }
+
+        /// <summary>Nuts, base plates, pins … that belong to a spindle.</summary>
+        public Regex ComponentRx { get; set; }
+
+        /// <summary>Element ids of the parts that matched <see cref="SpindleRx"/> / <see cref="ComponentRx"/>.</summary>
+        public HashSet<string> SpindleIds { get; } = new HashSet<string>();
+
+        public HashSet<string> ComponentIds { get; } = new HashSet<string>();
+
+        /// <summary>Collect top-level objects that were not recognised (SPINDELLOAD shows them when the user selects them).</summary>
+        public bool CollectUnknowns { get; set; }
+
+        public sealed class UnknownItem
+        {
+            public string Id;
+            public ObjectId TopId;
+            public string Text;
+            public Extents3d Extents;
+        }
+
+        public List<UnknownItem> Unknowns { get; } = new List<UnknownItem>();
+
         /// <summary>
         /// Reads a top-level entity. With <paramref name="forcedKind"/> the entity itself is taken
         /// as that kind; otherwise it is classified and, if it is an unrecognised assembly block,
@@ -165,6 +191,12 @@ namespace BeamCheck.Cad
             var cls = _classifier.Classify(sig);
             var kind = forcedKind ?? cls.Kind;
 
+            string matchText = (cls.Article ?? "") + " " + (cls.Description ?? "") + " " + (sig.BlockName ?? "");
+            bool isSpindle = SpindleRx != null && SpindleRx.IsMatch(matchText);
+            bool isComponent = !isSpindle && ComponentRx != null && ComponentRx.IsMatch(matchText);
+            if (forcedKind == null && kind == ElementKind.Unknown && (isSpindle || isComponent))
+                kind = isSpindle ? ElementKind.Standard : ElementKind.Accessory;
+
             // An unrecognised ordinary block may be an assembly: look for parts inside first.
             if (kind == ElementKind.Unknown && periBlock == null && ent is BlockReference br && depth < MaxNesting)
             {
@@ -184,7 +216,27 @@ namespace BeamCheck.Cad
             if (kind == ElementKind.Unknown && _settings.UseShapeRecognition)
                 kind = _shape.Guess(segs);
             if (kind == ElementKind.Unknown)
+            {
+                if (CollectUnknowns && depth == 0)
+                {
+                    try
+                    {
+                        Unknowns.Add(new UnknownItem
+                        {
+                            Id = id,
+                            TopId = topId,
+                            Text = matchText.Trim().Length > 0 ? matchText.Trim() : (DxfName(ent) ?? ent.GetType().Name),
+                            Extents = ent.GeometricExtents,
+                        });
+                    }
+                    catch (System.Exception)
+                    {
+                        // Without extents it cannot be shown.
+                    }
+                }
+
                 return;
+            }
 
             var e = _shape.Build(segs, kind);
             if (e == null)
@@ -221,6 +273,10 @@ namespace BeamCheck.Cad
                 e.WeightIsEstimated = true;
             }
 
+            if (isSpindle)
+                SpindleIds.Add(id);
+            if (isComponent)
+                ComponentIds.Add(id);
             TopLevelIds[id] = topId;
             output.Add(e);
         }

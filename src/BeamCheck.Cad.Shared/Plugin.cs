@@ -17,7 +17,7 @@ namespace BeamCheck.Cad
     public sealed class Plugin : IExtensionApplication
     {
         public const string LoadedMessage =
-            "\nBeamCheck geladen. Befehle: BEAMLOAD — Lasten aus Ständern auf Träger oder Riegel, BEAMEXPORT — berücksichtigte Teile in eine neue DWG kopieren, BEAMBATCH — alle Träger automatisch berechnen (Excel), BEAMFIND — Träger im Modell finden, PERIDUMP — Objektdaten, BEAMLOADSETTINGS — Einstellungen.\n";
+            "\nBeamCheck geladen. Befehle: BEAMLOAD — Lasten aus Ständern auf Träger oder Riegel, BEAMEXPORT — berücksichtigte Teile in eine neue DWG kopieren, BEAMBATCH — alle Träger automatisch berechnen (Excel), BEAMFIND — Träger im Modell finden, PERIDUMP — Objektdaten, BEAMLOADSETTINGS — Einstellungen; SPINDELLOAD — Lasten in allen Spindeln, SPINDELDUMP — Spindel-Diagnose, SPINDELSETTINGS — Spindel-Einstellungen.\n";
 
         public void Initialize()
         {
@@ -27,6 +27,7 @@ namespace BeamCheck.Cad
             try
             {
                 PeriRibbon.RegisterBeamCheck();
+                PeriRibbon.RegisterSpindleLoad();
             }
             catch (System.Exception ex)
             {
@@ -54,7 +55,7 @@ namespace BeamCheck.Cad
         }
 
         /// <summary>Build tag shown in the dialog title, to tell which package is loaded.</summary>
-        public const string BuildTag = "v45";
+        public const string BuildTag = "v46";
 
         /// <summary>Appends a line to %APPDATA%\BeamCheck\BeamCheck.log (load diagnostics).</summary>
         public static void Log(string line)

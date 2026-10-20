@@ -177,6 +177,17 @@ namespace BeamCheck.Cad
                 new RibbonButtonSpec { Text = "Einstellungen", Command = "BEAMLOADSETTINGS", Glyph = "ES", Color = Color.FromArgb(0x55, 0x55, 0x55), Tooltip = "BEAMLOADSETTINGS: Einstellungen und Gewichte" },
             });
         }
+
+        /// <summary>The panel of SPINDELLOAD (spindle loads with the BeamCheck engine).</summary>
+        internal static void RegisterSpindleLoad()
+        {
+            AddPanel("BEAMCHECK_SPINDLE", "BeamCheck – Spindeln", new List<RibbonButtonSpec>
+            {
+                new RibbonButtonSpec { Text = "Spindellasten", Command = "SPINDELLOAD", Glyph = "SL", Color = Color.FromArgb(0xC6, 0x28, 0x28), Tooltip = "SPINDELLOAD: maximale Last in jeder Spindel (Fuß-/Kopfspindel, UJB) mit Einzelprüfung" },
+                new RibbonButtonSpec { Text = "Spindel-Daten", Command = "SPINDELDUMP", Glyph = "SD", Color = Color.FromArgb(0x00, 0x69, 0x7C), Tooltip = "SPINDELDUMP: was das Programm in einem Teil sieht (wird es als Spindel erkannt?)" },
+                new RibbonButtonSpec { Text = "Spindel-Einst.", Command = "SPINDELSETTINGS", Glyph = "SE", Color = Color.FromArgb(0x55, 0x55, 0x55), Tooltip = "SPINDELSETTINGS: Einstellungen von SPINDELLOAD" },
+            });
+        }
     }
 }
 #endif

@@ -21,6 +21,9 @@
 | `BEAMLOAD` | Основная команда: выбрать балку → выбрать стойки → диалог → вставить схему и таблицу |
 | `PERIDUMP` | Диагностика: выгружает в текстовый файл всё, что модуль «видит» в выбранных объектах |
 | `BEAMLOADSETTINGS` | Открывает файл настроек `%APPDATA%\BeamCheck\BeamCheck.settings.json` |
+| `SPINDELLOAD` | Максимальная нагрузка в каждом шпинделе (Fuß-/Kopfspindel, UJB) всего чертежа — тем же расчётом, что `BEAMLOAD` (см. [`docs/SPINDLELOAD.md`](docs/SPINDLELOAD.md)) |
+| `SPINDELDUMP` | Диагностика: распознаётся ли выбранная деталь как шпиндель |
+| `SPINDELSETTINGS` | Открывает настройки шпинделей `%APPDATA%\BeamCheck\BeamCheck.Spindle.settings.json` |
 
 ### Порядок работы `BEAMLOAD`
 1. **Выбрать балку.** Её ось и длина определяются по геометрии блока.

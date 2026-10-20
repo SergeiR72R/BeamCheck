@@ -1,0 +1,23 @@
+{
+  "SettingsVersion": 7,
+  "SpindlePattern": "(?i)(spindel|spindle|(?<![a-z])ujb(?![a-z])|fu(ß|ss)spindel|kopfspindel|schraubspindel)",
+  "SupportEndPartPattern": "(?i)(wirbelmutter|zapfen|fu(ß|ss)platte|base ?plate|(?<!\\d)(116761|116762|100480|100412|100409|100481|715198|019780|100159|130684|130681|136779)(?!\\d))",
+  "VirtualSupportSize": 200,
+  "HeadTopTolerance": 300,
+  "CandidateRadius": 3500,
+  "CandidateBelow": 600,
+  "MaxThreads": 0,
+  "MaxObjectSize": 150000,
+  "MaxBlockEntities": 20000,
+  "SkipLayersPattern": "",
+  "ZoneRadius": 3000,
+  "ZoneBelow": 1000,
+  "ZoneAbove": 4000,
+  "PickTolerance": 600,
+  "MarkerRadius": 350,
+  "TextHeight": 2.5,
+  "Scale": 50,
+  "Layer": "SPINDLELOAD",
+  "DecimalSeparator": ",",
+  "ShowDesignValues": false
+}

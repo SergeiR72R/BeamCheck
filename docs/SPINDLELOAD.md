@@ -111,6 +111,13 @@ If you use bays longer than ~3 m or very wide consoles and think a load is missi
 
 ## History
 
+### v50 (2026-10-21) — a console on the support standard under the beam is no load on it
+* The real cause of C = 7,23 kN at S2 of B-005 ("Beam check Feed_V1"): the support standard under the SRU carries a console UCM 50
+  2,7 m below the beam, a pin ledger UHV 250 hangs on its tip with two stacks and a deck level (2,86 m², the live-loaded level). The empty
+  UVA clamp on the beam at S2 touches that support standard, so the console was given to the clamp – and appeared as a load on the beam.
+  Now a beam or console is carried by a column only if its bearing height lies within that column. C at S2 is only the UVA clamp now,
+  and the live load goes to a level the beam really carries.
+
 ### v49 (2026-10-21) — a support standard through the beam is no load on it
 * A standard that comes up **through** the beam from below (its foot more than 200 mm under the beam's underside – the support under the
   beam) is no longer counted as a stack standing on the beam. Before, when its body reached a little above the beam top, the deck level

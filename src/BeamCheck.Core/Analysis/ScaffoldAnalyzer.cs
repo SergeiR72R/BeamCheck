@@ -369,7 +369,12 @@ namespace BeamCheck.Core.Analysis
                             continue;
                         if (!OnBeamFootprint(u, run.Axis, out double pos))
                             continue;
-                        var carrier = active.FirstOrDefault(c => SameStack(c, run, tol));
+                        // The carrying column must reach the height where the beam bears (a console: its top rail). A stack that only
+                        // touches the column (the UVA clamp on the checked beam sitting on the support standard under it) does not make
+                        // a console fixed 2 m lower on that support standard a load on the checked beam.
+                        double bearingZ = u.Kind == ElementKind.Console ? u.ZMax : u.ZMin;
+                        var carrier = active.FirstOrDefault(c => SameStack(c, run, tol)
+                                                                 && bearingZ >= c.ZBottom - _s.NodeTolerance && bearingZ <= c.ZTop + _s.UpperBeamBearingTolerance);
                         link.Supports.Add(new BeamSupport { Column = carrier, Position = pos });
                     }
 

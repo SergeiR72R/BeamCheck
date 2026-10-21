@@ -151,6 +151,27 @@ namespace BeamCheck.Core.Tests
         }
 
         [Fact]
+        public void ConsoleOnTheSupportStandardUnderTheBeam_IsNoLoadOnIt()
+        {
+            // B-005 in "Beam check Feed_V1": the support standard under the SRU carries a console 2.7 m lower, a pin ledger hangs on its
+            // tip with stacks and decks on it. On the beam at the support sits an empty UVA clamp touching the support standard.
+            // The console belongs to the support standard, not to the clamp: nothing of it is a load on the beam.
+            var beam = new ScaffoldElement { Id = "SRU", Kind = ElementKind.Beam, Start = new Vec3(0, 0, -60), End = new Vec3(4972, 0, -60), Width = 52, ZMin = -120, ZMax = 0, WeightKg = 135, Description = "SRU 497" };
+            var support = Std(4049, 0, -2236, -76);                                           // UVR 200 under the beam
+            Std(4049, 0, -4236, -2236);
+            var clamp = E(ElementKind.Standard, 4049, 0, -236, 224, 3, "UVA");               // touches the UVR top
+            var console = new ScaffoldElement { Id = "UCM", Kind = ElementKind.Console, Start = new Vec3(4049, 0, -2800), End = new Vec3(3549, 0, -2800), Width = 60, ZMin = -3105, ZMax = -2736, WeightKg = 8, Description = "UCM 50 mit Zapfen" };
+            _all.Add(console);
+            var deck = new ScaffoldElement { Id = "DECK", Kind = ElementKind.Deck, Start = new Vec3(3549, 500, -2750), End = new Vec3(3549, 2500, -2750), Width = 1000, ZMin = -2800, ZMax = -2750, WeightKg = 40, Description = "Stahlbelag UDG" };
+            _all.Add(deck);
+            var session = new BeamLoadSession(Settings(), new AnalysisInput { Beam = beam, SelectedStandards = { clamp }, Candidates = new List<ScaffoldElement>(_all) });
+            var c = session.Result.Points.Single();
+            Assert.Equal(KN(3), c.Gk, Tol);
+            Assert.Equal(0, c.Qk, Tol);
+            Assert.DoesNotContain(session.Topology.UpperBeams, l => l.Beam.Id == "UCM");
+        }
+
+        [Fact]
         public void PlainScaffoldTop_IsNoOpenHead()
         {
             var beam = new ScaffoldElement { Id = "BEAM", Kind = ElementKind.Beam, Start = new Vec3(0, 0, -200), End = new Vec3(3000, 0, -200), Width = 100, ZMin = -200, ZMax = 0, WeightKg = 50, Description = "RCS Schiene" };

@@ -11,7 +11,7 @@ namespace BeamCheck.Core.Spindles
 {
     public enum PartKind
     {
-        Other, Spindle, SpindleComponent, Standard, Ledger, Beam, Console, Deck, Diagonal, Accessory, BeamConnector
+        Other, Spindle, SpindleComponent, Standard, Ledger, Beam, Console, Deck, Diagonal, Accessory, BeamConnector, BuildingSupport
     }
 
     /// <summary>One recognised drawing part (display / selection data). All geometry in millimetres.

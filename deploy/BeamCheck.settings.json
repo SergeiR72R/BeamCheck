@@ -152,5 +152,8 @@
   "StackTransferEnabled": true,
   "StackTransferPlanDistance": 600,
   "StackTransferHeight": 600,
-  "HeadPartPattern": "(?i)(spindel|spindle|(?<![a-z])ujb(?![a-z]))"
+  "HeadPartPattern": "(?i)(spindel|spindle|(?<![a-z])ujb(?![a-z]))",
+  "BuildingSupportLayerPattern": "(?i)building[ _-]?structure",
+  "BuildingSupportHeight": 300,
+  "BuildingSupportPlanTolerance": 50
 }

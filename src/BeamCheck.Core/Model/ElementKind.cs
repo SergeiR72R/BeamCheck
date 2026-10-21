@@ -23,5 +23,10 @@ namespace BeamCheck.Core.Model
         Console,
         /// <summary>Climbing-rail connector (Kletterschienenverbinder): joins two beams end to end rigidly, they act as one long beam.</summary>
         BeamConnector,
+        /// <summary>
+        /// Part of the building (steel beam, foundation, pedestal …) on the layer BuildingSupportLayerPattern: carries scaffold beams lying
+        /// on it, the load goes into the building. Weightless, never part of the scaffold.
+        /// </summary>
+        BuildingSupport,
     }
 }

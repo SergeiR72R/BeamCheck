@@ -240,8 +240,13 @@ namespace BeamCheck.Core.Batch
 
             report.Related.Add(beam.Id);
             foreach (var sp in supports)
-                foreach (var sec in sp.Column.Sections)
-                    report.Related.Add(sec.Id);
+            {
+                if (sp.Column != null)
+                    foreach (var sec in sp.Column.Sections)
+                        report.Related.Add(sec.Id);
+                if (sp.Building != null)
+                    report.Related.Add(sp.Building.Id);
+            }
 
             // Loads, left to right.
             foreach (var p in points.OrderBy(p => Left(p.Position)))
@@ -276,8 +281,10 @@ namespace BeamCheck.Core.Batch
                 {
                     Kind = BeamEventKind.Support,
                     Position = Left(x.Position),
-                    Detail = string.Format(CultureInfo.InvariantCulture, "stack Z {0:0}..{1:0}, offset from beam axis {2:0} mm, parts {3}",
-                        x.Column.ZBottom, x.Column.ZTop, x.Offset, string.Join(",", x.Column.Sections.Select(c => c.Id))),
+                    Detail = x.Column == null
+                        ? string.Format(CultureInfo.InvariantCulture, "building {0} [{1}], top Z {2:0}", x.Building?.DisplayName, x.Building?.Id, x.Building?.ZMax ?? 0)
+                        : string.Format(CultureInfo.InvariantCulture, "stack Z {0:0}..{1:0}, offset from beam axis {2:0} mm, parts {3}",
+                            x.Column.ZBottom, x.Column.ZTop, x.Offset, string.Join(",", x.Column.Sections.Select(c => c.Id))),
                 }).OrderBy(e => e.Position).ToList();
                 for (int j = 0; j < events.Count; j++)
                     events[j].Label = "S" + (j + 1).ToString(CultureInfo.InvariantCulture);

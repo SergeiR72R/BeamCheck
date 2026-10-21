@@ -26,6 +26,7 @@ namespace BeamCheck.Core.Spindles
         // ---- recognition ----
         [DataMember] public string SpindlePattern;         // the spindle / jack itself
         [DataMember] public string SupportEndPartPattern;  // nuts, base plates, pins ... (belong to a spindle)
+        [DataMember] public string PartRowPattern;         // parts that get a row of their own in "All" / "Select" too (UVA, UH-Zapfen ...), "" = none
 
         // ---- calculation ----
         [DataMember] public double VirtualSupportSize;     // size of the invisible support placed under each spindle foot (mm)
@@ -52,7 +53,19 @@ namespace BeamCheck.Core.Spindles
         [DataMember] public string DecimalSeparator;
         [DataMember] public bool ShowDesignValues;
 
-        public Regex SpindleRx, SupportEndRx;
+        public Regex SpindleRx, SupportEndRx, PartRowRx;
+
+        /// <summary>The parts of a scan that get a row of their own besides the spindles (<see cref="PartRowPattern"/>).</summary>
+        public System.Collections.Generic.List<string> PartRows(ScanResult scan)
+        {
+            var list = new System.Collections.Generic.List<string>();
+            if (PartRowRx == null) return list;
+            var spindles = new System.Collections.Generic.HashSet<string>(System.Linq.Enumerable.Select(scan.SpindleCores, p => p.Handle));
+            foreach (var e in scan.Elements)
+                if (!spindles.Contains(e.Id) && e.Kind != BeamCheck.Core.Model.ElementKind.BuildingSupport && PartRowRx.IsMatch((e.Article ?? "") + " " + (e.Description ?? "")))
+                    list.Add(e.Id);
+            return list;
+        }
 
         public SpindleSettings() { SetDefaults(); }
 
@@ -64,6 +77,7 @@ namespace BeamCheck.Core.Spindles
             SettingsVersion = CurrentVersion;
             SpindlePattern = "(?i)(spindel|spindle|(?<![a-z])ujb(?![a-z])|fu(ß|ss)spindel|kopfspindel|schraubspindel)";
             SupportEndPartPattern = "(?i)(wirbelmutter|zapfen|fu(ß|ss)platte|base ?plate|(?<!\\d)(116761|116762|100480|100412|100409|100481|715198|019780|100159|130684|130681|136779)(?!\\d))";
+            PartRowPattern = "(?i)((?<![a-z])uva(?![a-z])|zapfen|(?<!\\d)(136779|130681|130684)(?!\\d))";
             VirtualSupportSize = 200;
             HeadTopTolerance = 300;
             CandidateRadius = 3500; CandidateBelow = 600; MaxThreads = 0;
@@ -89,7 +103,9 @@ namespace BeamCheck.Core.Spindles
             if (MaxBlockEntities <= 0) MaxBlockEntities = d.MaxBlockEntities;
             if (SkipLayersPattern == null) SkipLayersPattern = "";
             if (PickReadRadius <= 0) PickReadRadius = d.PickReadRadius;
+            if (PartRowPattern == null) PartRowPattern = d.PartRowPattern;
             SpindleRx = new Regex(SpindlePattern, RegexOptions.CultureInvariant);
+            PartRowRx = string.IsNullOrEmpty(PartRowPattern) ? null : new Regex(PartRowPattern, RegexOptions.CultureInvariant);
             SupportEndRx = new Regex(SupportEndPartPattern, RegexOptions.CultureInvariant);
         }
 

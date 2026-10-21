@@ -123,6 +123,9 @@ namespace BeamCheck.Core.Tests
             Assert.Equal(600, s.StackTransferPlanDistance);
             Assert.Equal(600, s.StackTransferHeight);
             Assert.Matches(s.HeadPartPattern, "Kopfspindel UJB 38-50/30");
+            Assert.Matches(s.BuildingSupportLayerPattern, "BUILDING STRUCTURE+");
+            Assert.Equal(300, s.BuildingSupportHeight);
+            Assert.Equal(50, s.BuildingSupportPlanTolerance);
 
             // an older settings file without these values gets the defaults
             using (var ms = new System.IO.MemoryStream(System.Text.Encoding.UTF8.GetBytes("{\"SettingsVersion\":24}")))

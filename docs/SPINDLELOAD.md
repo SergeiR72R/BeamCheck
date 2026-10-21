@@ -26,6 +26,14 @@ of the next stack stands up to `StackTransferPlanDistance` 600 mm **beside** the
 a column a beam rests on gives the stack to the beam). Each foot goes to the nearest column top. Every such transfer is listed as a note
 (ℹ … *auf dem Kopf … steht …*) and in the Rechenweg (*Versetzt auf dem Kopf*). Switch: `StackTransferEnabled` in `BeamCheck.settings.json`.
 
+**Supports from the building model** (BeamCheck v48, also in BEAMLOAD / BEAMBATCH): everything on the layer `BuildingSupportLayerPattern`
+(default `BUILDING STRUCTURE…`) – steel beams, foundations, pedestals imported from Navisworks as blocks – is a **building support**, never a
+scaffold part (no weight). Its real plan outline is taken from its faces (smallest rectangle, also for rotated steel). A scaffold beam bears on it
+when the beam crosses the outline (±50 mm `BuildingSupportPlanTolerance` + half the beam width) and its top is 0–300 mm (`BuildingSupportHeight`)
+below the underside of the beam – the mesh grating in between carries nothing. Support point: the **outer supports** of the beam at the **inner edge**
+(simply supported), supports **between** them at the **middle** of the flange / foundation (continuous beam). The share taken there goes into the
+building; spindles under the same beam get only their own lever share. Note: *Träger … liegt auch auf dem Bauwerk*; Rechenweg: *= Bauwerk …*.
+
 On top of BeamCheck:
 * **Head spindles** (nothing found standing on them, also not by the transfer above) are flagged; you tell the program what stands on them. The linked spindle /
   vertical is calculated with BeamCheck at its own foot and its **whole load** goes into the head spindle **and every spindle below it**.
@@ -45,6 +53,8 @@ On top of BeamCheck:
    A **progress window** shows the step (reading / calculating / linked columns), a progress bar, *x of y*, time of this step, **remaining time** and total time, with a **Cancel** button
    (cancel while calculating: the spindles done so far are kept, the rest are marked *Not calculated*). The times of each step are written to the command line.
    Calculation runs on **all CPU cores**; each spindle gets only the parts around its column (`CandidateRadius`), grown along beams.
+   Besides the spindles, every part matching `PartRowPattern` (default **UVA** and **UH-Zapfen / UHA-Zapfen**, articles 136779, 130681, 130684)
+   gets a **row of its own** (type *part*) with everything standing on it.
    Temporary markers in the view: **red** = open head spindle / maximum, **yellow** = BeamCheck warning (not saved in the drawing).
 2. *Answer the open head spindles one by one?* For each one the program **isolates a work zone** around it (only that area is visible) and asks
    `[Click/Window/Nothing/Manual/Skip/Stop]`:
@@ -100,6 +110,15 @@ If you use bays longer than ~3 m or very wide consoles and think a load is missi
 | `tests/BeamCheck.Core.Tests/SpindleEngineTests.cs` | engine tests without AutoCAD |
 
 ## History
+
+### v48 (2026-10-21) — building supports, UVA / UH-Zapfen rows
+* **Building model as supports** (BEAMLOAD, BEAMBATCH, SPINDELLOAD): objects on the layer `BUILDING STRUCTURE…` (`BuildingSupportLayerPattern`) are
+  supports – steel beams, foundations, pedestals; 0–300 mm under the scaffold beam (mesh between), ±50 mm in plan; outer supports at the inner edge,
+  intermediate ones at the middle. They are no longer read as decks / beams (a pedestal was read as a 40 t deck before).
+* BEAMBATCH: a beam lying only on the building gets those supports (no more "festem Untergrund" for it).
+* **SPINDELLOAD All / Select**: UVA and UH-Zapfen get rows of their own (`PartRowPattern` in the spindle settings).
+* Labels, list and Excel show the **article and name** (`S12 UJB 38-50/30: 23,4 kN`).
+* PERIDUMP says when an object is read as a building support.
 
 ### v47 (2026-10-21) — stacks on head spindles, pick any vertical
 * **Stack on a head spindle modelled offset** (up to 600 mm beside the head, or its foot up to 600 mm above it): its whole load goes into the head

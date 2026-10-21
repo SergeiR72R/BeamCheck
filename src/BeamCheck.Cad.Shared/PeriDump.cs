@@ -77,6 +77,8 @@ namespace BeamCheck.Cad
                     var cls = classifier.Classify(sig);
                     sb.AppendLine("-- Classification: kind=" + cls.Kind + "  article=" + cls.Article + "  weight=" +
                                   (cls.WeightKg.HasValue ? cls.WeightKg.Value.ToString(CultureInfo.InvariantCulture) + " kg" : "?") + "  descr=" + cls.Description);
+                    if (reader.IsBuilding(ent))
+                        sb.AppendLine("-- Layer " + ent.Layer + " = building model (BuildingSupportLayerPattern): read as a building support, the classification above is not used");
                     foreach (var el in reader.Read(ent))
                     {
                         sb.AppendLine(string.Format(CultureInfo.InvariantCulture,

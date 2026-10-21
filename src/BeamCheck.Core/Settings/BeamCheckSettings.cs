@@ -255,6 +255,18 @@ namespace BeamCheck.Core.Settings
         /// <summary>The top part of a column that is a head spindle (article / name): with nothing found on it, the user is asked what stands on it.</summary>
         [DataMember(Order = 88)] public string HeadPartPattern { get; set; }
 
+        /// <summary>
+        /// Layer of the building model (steel beams, foundations, pedestals imported e.g. from Navisworks): every object on it is a
+        /// building support, never a scaffold part. Empty = none.
+        /// </summary>
+        [DataMember(Order = 89)] public string BuildingSupportLayerPattern { get; set; }
+
+        /// <summary>A scaffold beam bears on a building part whose top is up to this far below the beam's underside (a mesh grating lies between), mm.</summary>
+        [DataMember(Order = 90)] public double BuildingSupportHeight { get; set; }
+
+        /// <summary>... and whose plan outline the beam axis crosses, within this tolerance (plus half the beam width), mm.</summary>
+        [DataMember(Order = 91)] public double BuildingSupportPlanTolerance { get; set; }
+
         [OnDeserializing]
         private void OnDeserializing(StreamingContext context)
         {
@@ -313,6 +325,9 @@ namespace BeamCheck.Core.Settings
             StackTransferPlanDistance = 600;
             StackTransferHeight = 600;
             HeadPartPattern = @"(?i)(spindel|spindle|(?<![a-z])ujb(?![a-z]))";
+            BuildingSupportLayerPattern = @"(?i)building[ _-]?structure";
+            BuildingSupportHeight = 300;
+            BuildingSupportPlanTolerance = 50;
 
             StandardKgPerM = 5.5;
             LedgerKgPerM = 3.5;

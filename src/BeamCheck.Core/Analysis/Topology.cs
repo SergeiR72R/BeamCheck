@@ -139,6 +139,9 @@ namespace BeamCheck.Core.Analysis
     {
         public Column Column { get; set; }
 
+        /// <summary>A part of the building (steel beam, foundation) carries the beam here (<see cref="Column"/> is null: the load goes into the building).</summary>
+        public ScaffoldElement Building { get; set; }
+
         /// <summary>Position along the beam, mm.</summary>
         public double Position { get; set; }
 

@@ -210,7 +210,8 @@ namespace BeamCheck.Cad
                     ed.WriteMessage("\nThe picked object(s) are not recognised as scaffold parts. Run SPINDELDUMP on them.\n");
                     return;
                 }
-                if (run.Scan.SpindleCores.Count == 0 && !run.PickMode)
+                var partRows = run.PickMode ? new List<string>() : run.S.PartRows(run.Scan);
+                if (run.Scan.SpindleCores.Count == 0 && !run.PickMode && partRows.Count == 0)
                 {
                     ed.WriteMessage("\nNo spindles found (" + run.Scan.Elements.Count + " parts read). Run SPINDELDUMP on a spindle and check SpindlePattern in the settings.\n");
                     return;
@@ -219,14 +220,18 @@ namespace BeamCheck.Cad
                 run.Sidecar = Sidecar.Load(run.SidecarPath);
                 run.Engine = new SpindleEngine(run.Scan, run.S, run.Bcs, loadClass);
                 if (run.PickMode) run.Engine.TargetIds = new HashSet<string>(run.Picked);
+                else { run.Engine.TargetIds = new HashSet<string>(partRows); run.Engine.TargetsArePicked = false; }
                 if (run.Engine.GridSkipped > 0) ed.WriteMessage("\nIgnored " + run.Engine.GridSkipped + " part(s) with an impossible size.");
                 run.Res = RunEngine(run, pw, null);
+                if (partRows.Count > 0)
+                    ed.WriteMessage("\nParts with a row of their own (PartRowPattern: UVA, UH-Zapfen …): " + run.Res.Spindles.Count(x => x.IsPicked && !x.IsSpindle) +
+                                    (run.Engine.TargetsWithoutFoot > 0 ? ", " + run.Engine.TargetsWithoutFoot + " without anything standing on them (not listed)" : "") + ".");
                 run.Res.ReadMillis = readClock.ElapsedMilliseconds - run.Res.Millis;
                 ed.WriteMessage("\nTimes: " + pw.Summary());
                 if (run.Res.Cancelled) ed.WriteMessage("\nCancelled: spindles not yet calculated are marked 'Not calculated' in the list.");
             }
             finally { pw.Close(); pw.Dispose(); }
-            if (run.Scan.Cancelled || (run.Scan.SpindleCores.Count == 0 && !run.PickMode) || (run.PickMode && run.Picked.Count == 0)) return;
+            if (run.Scan.Cancelled || run.Res == null || run.Res.Spindles.Count == 0) return;
 
             PrintSummary(run);
 
@@ -255,7 +260,8 @@ namespace BeamCheck.Cad
         {
             var ed = run.Ed; var res = run.Res; var s = run.S;
             ed.WriteMessage("\n------------------------------------------------------------");
-            ed.WriteMessage("\nSpindles: " + res.Spindles.Count + "  (" + res.Spindles.Count(x => x.Type == "head") + " head, " + res.Spindles.Count(x => x.Type == "base") + " base)   parts read: " + res.Scan.Elements.Count + "   unrecognised objects: " + res.Scan.Unrecognized.Count);
+            ed.WriteMessage("\nSpindles: " + res.Spindles.Count(x => x.IsSpindle) + "  (" + res.Spindles.Count(x => x.Type == "head") + " head, " + res.Spindles.Count(x => x.Type == "base") + " base)" +
+                            (res.Spindles.Any(x => !x.IsSpindle) ? "   other parts with a row: " + res.Spindles.Count(x => !x.IsSpindle) : "") + "   parts read: " + res.Scan.Elements.Count + "   unrecognised objects: " + res.Scan.Unrecognized.Count);
             ed.WriteMessage("\nLoad class " + res.LoadClass + " = " + s.Fmt(res.QKnPerM2) + " kN/m2,  gamma G " + s.Fmt(res.GammaG) + ", gamma Q " + s.Fmt(res.GammaQ) + "   (" + res.Millis + " ms)");
             ed.WriteMessage("\nModel weight " + s.Fmt(res.ModelWeightKn, "0.0") + " kN  -  dead load on spindles without anything below " + s.Fmt(res.BaseSpindlesKn, "0.0") + " kN" +
                             (res.ModelWeightKn > 0 ? "  (" + (res.BaseSpindlesKn / res.ModelWeightKn * 100).ToString("0") + " %; < 100 % = load not reaching a spindle, > 100 % = conservative uplift / double paths)" : ""));
@@ -280,14 +286,15 @@ namespace BeamCheck.Cad
             foreach (var id in picked)
             {
                 var els = scanner.ElementsOf(id).Select(k => { ScaffoldElement e; return run.Scan.ElementById.TryGetValue(k, out e) ? e : null; }).Where(e => e != null).ToList();
-                var foot = els.Where(e => e.Kind == ElementKind.Standard).OrderBy(e => e.ZMin).FirstOrDefault()
-                           ?? els.Select(e => SpindleEngine.FootOf(e, run.Scan.Elements)).FirstOrDefault(e => e != null);
-                if (foot == null)
+                // the part itself (its name in the list and labels); the engine calculates it at the standard it stands for
+                var part = els.Where(e => e.Kind == ElementKind.Standard).OrderBy(e => e.ZMin).FirstOrDefault()
+                           ?? els.FirstOrDefault(e => SpindleEngine.FootOf(e, run.Scan.Elements) != null);
+                if (part == null)
                 {
                     run.Ed.WriteMessage("\n  Picked " + id.ObjectClass.DxfName + " " + id.Handle + ": " + (els.Count == 0 ? "not recognised as a scaffold part" : "no standard stands on it") + " - not calculated.");
                     continue;
                 }
-                targets.Add(foot.Id);
+                targets.Add(part.Id);
             }
             return targets;
         }
@@ -827,7 +834,7 @@ namespace BeamCheck.Cad
 
                 var xb = new XlsxBuilder();
                 var sh = xb.AddSheet("Spindles");
-                sh.Rows.Add(new object[] { "No", "Type", "Element", "X mm", "Y mm", "Z foot mm", "Z top mm", "Gk kN", "Qk kN", "Fk kN", "Fd kN", "Manual G kN", "Manual Q kN", "Status", "Your changes", "To check" });
+                sh.Rows.Add(new object[] { "No", "Type", "Part", "Element", "X mm", "Y mm", "Z foot mm", "Z top mm", "Gk kN", "Qk kN", "Fk kN", "Fd kN", "Manual G kN", "Manual Q kN", "Status", "Your changes", "To check" });
                 foreach (var sp in run.Shown)
                 {
                     var e = run.Sidecar.Get(sp.Key, false);
@@ -838,11 +845,11 @@ namespace BeamCheck.Cad
                         e.AddedIds.Count > 0 ? "+" + e.AddedIds.Count + " parts" : null,
                         e.Manual.Count > 0 ? string.Join("; ", e.Manual.Select(m => m.Description + " G" + m.DeadKn + "/Q" + m.ServiceKn)) : null
                     }.Where(x => x != null));
-                    sh.Rows.Add(new object[] { sp.Index, sp.Type, sp.Key, Math.Round(sp.X), Math.Round(sp.Y), Math.Round(sp.MinZ), Math.Round(sp.MaxZ),
+                    sh.Rows.Add(new object[] { sp.Index, sp.Type, PartName(sp), sp.Key, Math.Round(sp.X), Math.Round(sp.Y), Math.Round(sp.MinZ), Math.Round(sp.MaxZ),
                         Math.Round(sp.DeadKn, 3), Math.Round(sp.ServiceKn, 3), Math.Round(sp.CharKn, 3), Math.Round(sp.DesignKn, 3),
                         Math.Round(sp.ManualDead, 3), Math.Round(sp.ManualService, 3), sp.Status, ch, string.Join(" | ", sp.Problems) });
                 }
-                sh.ColumnWidths.AddRange(new double[] { 6, 7, 12, 9, 9, 9, 9, 9, 9, 9, 9, 10, 10, 12, 30, 80 });
+                sh.ColumnWidths.AddRange(new double[] { 6, 7, 36, 12, 9, 9, 9, 9, 9, 9, 9, 9, 10, 10, 12, 30, 80 });
 
                 var sum = xb.AddSheet("Summary");
                 sum.AutoFilter = false;
@@ -909,7 +916,7 @@ namespace BeamCheck.Cad
                     {
                         Position = new Point3d(sp.X / unit + h * 0.6, sp.Y / unit + h * 0.6, sp.MinZ / unit),
                         Height = h,
-                        TextString = "S" + sp.Index + ": " + s.Fmt(v, "0.0") + " kN" + (sp == max ? " (MAX)" : ""),
+                        TextString = "S" + sp.Index + " " + Trunc(PartName(sp), 40) + ": " + s.Fmt(v, "0.0") + " kN" + (sp == max ? " (MAX)" : ""),
                         Layer = s.Layer,
                         ColorIndex = sp == max ? 1 : (sp.Open ? 1 : (sp.Problems.Count > 0 && !sp.Confirmed ? 2 : 3)),
                     };
@@ -953,6 +960,12 @@ namespace BeamCheck.Cad
                             "\nLoad distribution, part recognition, weights, load classes and gammas come from BeamCheck (BEAMLOADSETTINGS, BeamCheck.weights.csv)." +
                             "\nEdit the spindle settings with a text editor; changes apply at the next SPINDELLOAD.\n");
             try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(path) { UseShellExecute = true }); } catch (Exception) { }
+        }
+
+        /// <summary>Article and name of the spindle / part (for the list, Excel and the labels).</summary>
+        internal static string PartName(SpindleInfo sp)
+        {
+            return sp.Core != null ? sp.Core.Label : sp.Key;
         }
 
         private static string Trunc(string t, int n)

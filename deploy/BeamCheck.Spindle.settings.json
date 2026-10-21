@@ -2,6 +2,7 @@
   "SettingsVersion": 7,
   "SpindlePattern": "(?i)(spindel|spindle|(?<![a-z])ujb(?![a-z])|fu(ß|ss)spindel|kopfspindel|schraubspindel)",
   "SupportEndPartPattern": "(?i)(wirbelmutter|zapfen|fu(ß|ss)platte|base ?plate|(?<!\\d)(116761|116762|100480|100412|100409|100481|715198|019780|100159|130684|130681|136779)(?!\\d))",
+  "PartRowPattern": "(?i)((?<![a-z])uva(?![a-z])|zapfen|(?<!\\d)(136779|130681|130684)(?!\\d))",
   "VirtualSupportSize": 200,
   "HeadTopTolerance": 300,
   "CandidateRadius": 3500,

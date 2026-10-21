@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text.RegularExpressions;
+using BeamCheck.Core.Analysis;
 using BeamCheck.Core.Geometry;
 using BeamCheck.Core.Model;
 using BeamCheck.Core.Recognition;
@@ -40,6 +41,7 @@ namespace BeamCheck.Cad
         private readonly double _toMm;
         private readonly Regex _periBlock;
         private readonly Regex _ignoreDxf;
+        private readonly Regex _buildingLayer;
         private readonly Dictionary<ObjectId, Extents3d?> _blockExtents = new Dictionary<ObjectId, Extents3d?>();
         private readonly Dictionary<string, ObjectId> _blockByName = new Dictionary<string, ObjectId>(StringComparer.OrdinalIgnoreCase);
 
@@ -55,6 +57,8 @@ namespace BeamCheck.Cad
                 _periBlock = new Regex(settings.PeriDisplayBlockPattern, RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
             if (!string.IsNullOrEmpty(settings.IgnoreDxfPattern))
                 _ignoreDxf = new Regex(settings.IgnoreDxfPattern, RegexOptions.CultureInvariant);
+            if (!string.IsNullOrEmpty(settings.BuildingSupportLayerPattern))
+                _buildingLayer = new Regex(settings.BuildingSupportLayerPattern, RegexOptions.CultureInvariant);
 
             var bt = (BlockTable)tr.GetObject(db.BlockTableId, OpenMode.ForRead);
             foreach (ObjectId id in bt)
@@ -101,10 +105,82 @@ namespace BeamCheck.Cad
         public List<ScaffoldElement> Read(Entity ent, ElementKind? forcedKind = null)
         {
             var list = new List<ScaffoldElement>();
+            if (forcedKind == null && IsBuilding(ent))
+            {
+                ReadBuilding(ent, Matrix3d.Identity, ent.Handle.ToString(), ent.ObjectId, 0, list);
+                return list;
+            }
+
             if (forcedKind == null && IsIgnored(ent))
                 return list;
             Read(ent, Matrix3d.Identity, ent.Handle.ToString(), ent.ObjectId, forcedKind, 0, list);
             return list;
+        }
+
+        // ---------------- building model ----------------
+
+        /// <summary>An object of the building model (layer <see cref="BeamCheckSettings.BuildingSupportLayerPattern"/>): a support, never a scaffold part.</summary>
+        public bool IsBuilding(Entity ent) => _buildingLayer != null && _buildingLayer.IsMatch(ent.Layer ?? "");
+
+        /// <summary>
+        /// A building part (IFC object from Navisworks: a block of faces, or a solid / mesh) as one <see cref="ElementKind.BuildingSupport"/>
+        /// with its real plan outline; every block nested in it (an assembly of several members) is a support of its own.
+        /// </summary>
+        private void ReadBuilding(Entity ent, Matrix3d xf, string id, ObjectId topId, int depth, List<ScaffoldElement> output)
+        {
+            var pts = new List<Vec3>();
+            CollectBuildingPoints(ent, xf, pts, id, topId, depth, output);
+            string name = ent is BlockReference br ? EffectiveName(_tr, br) : (DxfName(ent) ?? ent.GetType().Name);
+            if (name.StartsWith("NAV2CAD - ", StringComparison.OrdinalIgnoreCase))
+                name = name.Substring(10);
+            var e = BuildingSupports.FromPoints(pts, id, name);
+            if (e == null)
+                return;
+            TopLevelIds[id] = topId;
+            output.Add(e);
+        }
+
+        private void CollectBuildingPoints(Entity ent, Matrix3d xf, List<Vec3> pts, string id, ObjectId topId, int depth, List<ScaffoldElement> output)
+        {
+            if (ent is Face face)
+            {
+                for (short i = 0; i < 4; i++)
+                    pts.Add(ToVec(face.GetVertexAt(i).TransformBy(xf)));
+                return;
+            }
+
+            if (ent is BlockReference br && depth < MaxNesting)
+            {
+                var btr = (BlockTableRecord)_tr.GetObject(br.BlockTableRecord, OpenMode.ForRead);
+                var bxf = xf * br.BlockTransform;
+                foreach (ObjectId childId in btr)
+                {
+                    if (!(_tr.GetObject(childId, OpenMode.ForRead) is Entity child) || child is AttributeDefinition)
+                        continue;
+                    if (child is BlockReference)
+                        ReadBuilding(child, bxf, id + "/" + child.Handle, topId, depth + 1, output);
+                    else
+                        CollectBuildingPoints(child, bxf, pts, id, topId, depth + 1, output);
+                }
+
+                return;
+            }
+
+            // Any other body (solid, mesh, polyline …): the corners of its extents.
+            try
+            {
+                var ext = ent.GeometricExtents;
+                var a = ext.MinPoint;
+                var b = ext.MaxPoint;
+                foreach (var x in new[] { a.X, b.X })
+                    foreach (var y in new[] { a.Y, b.Y })
+                        foreach (var z in new[] { a.Z, b.Z })
+                            pts.Add(ToVec(new Point3d(x, y, z).TransformBy(xf)));
+            }
+            catch (System.Exception)
+            {
+                // No extents: nothing to support on.
+            }
         }
 
         /// <summary>

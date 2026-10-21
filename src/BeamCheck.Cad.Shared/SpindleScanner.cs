@@ -165,6 +165,7 @@ namespace BeamCheck.Cad
         {
             if (ent is Ray || ent is Xline) return "construction line (XLINE / RAY)";
             if (skipLayers != null && skipLayers.IsMatch(ent.Layer ?? "")) return "layer " + ent.Layer + " (SkipLayersPattern)";
+            if (_reader.IsBuilding(ent)) return null;      // building supports: any size, read as outlines (fast)
             var br = ent as BlockReference;
             if (br != null)
             {
@@ -218,6 +219,7 @@ namespace BeamCheck.Cad
         {
             double[] v = { el.Start.X, el.Start.Y, el.Start.Z, el.End.X, el.End.Y, el.End.Z, el.ZMin, el.ZMax, el.Width };
             foreach (var d in v) if (double.IsNaN(d) || double.IsInfinity(d) || Math.Abs(d) > 1e9) return false;
+            if (el.Kind == ElementKind.BuildingSupport) return true;
             double len = Math.Max(Math.Abs(el.End.X - el.Start.X), Math.Max(Math.Abs(el.End.Y - el.Start.Y), Math.Abs(el.ZMax - el.ZMin)));
             return len <= _s.MaxObjectSize && el.Width <= _s.MaxObjectSize;
         }

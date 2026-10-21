@@ -60,6 +60,7 @@ namespace BeamCheck.Core.Analysis
         private readonly HashSet<(BeamLink, Column)> _recordedTransfers = new HashSet<(BeamLink, Column)>();
         private readonly List<Column> _directContacts = new List<Column>();
         private ScaffoldElement _member;
+        private List<ScaffoldElement> _buildings = new List<ScaffoldElement>();
 
         public ScaffoldAnalyzer(BeamCheckSettings settings)
         {
@@ -88,6 +89,7 @@ namespace BeamCheck.Core.Analysis
             var all = Deduplicate(combined).ToList();
 
             var standards = all.Where(e => e.Kind == ElementKind.Standard).ToList();
+            _buildings = all.Where(e => e.Kind == ElementKind.BuildingSupport).ToList();
             BuildColumns(topo, input.SelectedStandards.Where(Active).ToList(), standards);
             if (topo.Columns.Count == 0)
             {
@@ -227,6 +229,7 @@ namespace BeamCheck.Core.Analysis
         public List<BeamSupport> FindSupports(ScaffoldElement beam, IEnumerable<ScaffoldElement> standards, IEnumerable<ScaffoldElement> others = null)
         {
             var otherList = others == null ? new List<ScaffoldElement>() : others.ToList();
+            _buildings = otherList.Where(e => e.Kind == ElementKind.BuildingSupport).ToList();
             var link = new BeamLink { Beam = beam };
             foreach (var run in BuildRuns(standards.Where(e => e.Kind == ElementKind.Standard).ToList()))
             {
@@ -244,6 +247,7 @@ namespace BeamCheck.Core.Analysis
                 link.Supports.Add(new BeamSupport { Column = run, Position = pos, Offset = offset });
             }
 
+            AddBuildingSupports(beam, link.Supports);
             link.Supports.Sort((a, b) => a.Position.CompareTo(b.Position));
             MergeCoincidentSupports(link);
             return link.Supports;
@@ -369,6 +373,8 @@ namespace BeamCheck.Core.Analysis
                         link.Supports.Add(new BeamSupport { Column = carrier, Position = pos });
                     }
 
+                    AddBuildingSupports(u, link.Supports);
+
                     if (!link.Supports.Any(x => x.Column != null))
                         continue;
 
@@ -402,6 +408,11 @@ namespace BeamCheck.Core.Analysis
                             ? "ℹ Konsole {0} ist an einem Ständer befestigt, darauf stehen {3} Ständer — ihre gesamte Last geht in diesen Ständer."
                             : "ℹ Träger {0} liegt auf {1} Ständern ({2} davon gewählt), darauf stehen {3} Ständer — deren Last wird auf die gewählten Ständer übertragen.",
                         u.DisplayName, link.Supports.Count, link.Supports.Count(x => x.Column != null), link.Loaded.Count));
+                    var onBuilding = link.Supports.Where(x => x.Building != null && x.Column == null).ToList();
+                    if (onBuilding.Count > 0)
+                        topo.Warnings.Add(string.Format(CultureInfo.InvariantCulture,
+                            "ℹ Träger {0} liegt auch auf dem Bauwerk: {1} — dieser Anteil geht ins Bauwerk.",
+                            u.DisplayName, string.Join("; ", onBuilding.Select(x => x.Building.DisplayName + " bei " + x.Position.ToString("0", CultureInfo.InvariantCulture) + " mm"))));
                     if (link.Loaded.Count == 0 && u.Kind != ElementKind.Console)
                         topo.Warnings.Add("ℹ Auf dem Träger " + u.DisplayName + " wurden keine Ständer gefunden, nur sein Eigengewicht wird berücksichtigt.");
                     if (u.WeightKg <= 0)
@@ -417,6 +428,26 @@ namespace BeamCheck.Core.Analysis
         /// Several runs of one stack (head, extension, spindle…) all reach the beam: they are one support. Two supports a few
         /// millimetres apart would make the lever rule divide by almost zero.
         /// </summary>
+        /// <summary>
+        /// Building parts the beam bears on (<see cref="BuildingSupports"/>) become supports without a column: their share goes into the
+        /// building. The outer supports of the beam sit at the inner edge of the part, the ones between at its middle.
+        /// </summary>
+        private void AddBuildingSupports(ScaffoldElement beam, List<BeamSupport> supports)
+        {
+            if (_buildings.Count == 0)
+                return;
+            var bearings = BuildingSupports.Under(beam, _buildings, _s);
+            if (bearings.Count == 0)
+                return;
+            var centres = supports.Select(x => x.Position).Concat(bearings.Select(b => b.Middle)).ToList();
+            double first = centres.Min(), last = centres.Max();
+            foreach (var b in bearings)
+            {
+                bool outer = centres.Count > 1 && (b.Middle <= first + 1e-6 || b.Middle >= last - 1e-6);
+                supports.Add(new BeamSupport { Building = b.Part, Position = BuildingSupports.SupportPoint(b, beam.PlanLength, outer) });
+            }
+        }
+
         private static void MergeCoincidentSupports(BeamLink link)
         {
             const double sameSupport = 100;
@@ -428,6 +459,8 @@ namespace BeamCheck.Core.Analysis
                 {
                     if (last.Column == null)
                         last.Column = sup.Column;
+                    if (last.Building == null)
+                        last.Building = sup.Building;
                 }
                 else
                 {
@@ -629,7 +662,7 @@ namespace BeamCheck.Core.Analysis
                     continue;
                 }
 
-                if (e.Kind != ElementKind.Beam && e.Kind != ElementKind.Console && e.Kind != ElementKind.Deck && e.Kind != ElementKind.BeamConnector)
+                if (e.Kind != ElementKind.Beam && e.Kind != ElementKind.Console && e.Kind != ElementKind.Deck && e.Kind != ElementKind.BeamConnector && e.Kind != ElementKind.BuildingSupport)
                     continue;
                 if (e.ZMax < run.ZBottom - 100 || e.ZMax > run.ZBottom + 30)
                     continue;

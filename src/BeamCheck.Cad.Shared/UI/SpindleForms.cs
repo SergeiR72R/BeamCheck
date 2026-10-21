@@ -45,6 +45,7 @@ namespace BeamCheck.Cad
             _table.Columns.Add("Key", typeof(string));
             _table.Columns.Add("No", typeof(int));
             _table.Columns.Add("Type", typeof(string));
+            _table.Columns.Add("Part", typeof(string));
             _table.Columns.Add("Fd kN", typeof(double));
             _table.Columns.Add("Gk kN", typeof(double));
             _table.Columns.Add("Qk kN", typeof(double));
@@ -66,7 +67,7 @@ namespace BeamCheck.Cad
                 }
                 string what = sp.Problems.Count > 0 ? sp.Problems[0] : "";
                 int sort = sp.Confirmed ? 3 : (sp.Open ? 0 : (sp.Problems.Count > 0 ? 1 : 2));
-                _table.Rows.Add(sp.Key, sp.Index, sp.Type, Math.Round(sp.DesignKn, 2), Math.Round(sp.DeadKn, 2), Math.Round(sp.ServiceKn, 2),
+                _table.Rows.Add(sp.Key, sp.Index, sp.Type, SpindleWorkflow.PartName(sp), Math.Round(sp.DesignKn, 2), Math.Round(sp.DeadKn, 2), Math.Round(sp.ServiceKn, 2),
                                 sp.Status, string.Join(", ", ch), what, Math.Round(sp.MinZ, 0), sort);
             }
 

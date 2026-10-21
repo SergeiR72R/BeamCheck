@@ -79,6 +79,23 @@ namespace BeamCheck.Core.Analysis
             Result = LoadCalculator.Calculate(Topology, Settings, Options);
         }
 
+        /// <summary>
+        /// "This stack stands on that column": the stack with <paramref name="upper"/> passes its whole load into the column with
+        /// <paramref name="lowerId"/> (a head spindle whose next stack is modelled too far away to be found).
+        /// </summary>
+        public void LinkStack(string lowerId, ScaffoldElement upper)
+        {
+            if (Input.Candidates.All(c => c.Id != upper.Id))
+                Input.Candidates.Add(upper);
+            Input.ExcludedIds.Remove(upper.Id);
+            Input.StackLinks.Add(new StackLink { LowerId = lowerId, UpperId = upper.Id });
+            Reanalyze();
+            bool taken = Topology.UpperBeams.Any(l => l.IsStackTransfer && l.Loaded.Any(c => c.Sections.Any(x => x.Id == upper.Id)));
+            StatusMessage = taken
+                ? "Ständer " + upper.DisplayName + " steht auf dem gewählten Kopf: seine gesamte Last wird übertragen."
+                : "Ständer " + upper.DisplayName + " wurde nicht übernommen (er wird schon getragen oder der Kopf ist nicht im Lastweg).";
+        }
+
         public void Exclude(IEnumerable<string> ids)
         {
             int n = 0;

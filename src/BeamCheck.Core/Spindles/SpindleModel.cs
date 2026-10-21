@@ -112,7 +112,11 @@ namespace BeamCheck.Core.Spindles
         public PartInfo Core;
         public ScaffoldElement Element;
         public double X, Y, MinZ, MaxZ;
-        public bool HasBelow;             // standard / spindle directly below (not a base spindle)
+        public bool HasBelow;             // standard / spindle directly below, or it stands on a head spindle beside it (not a base spindle)
+        public bool HasBelowInLine;       // standard / spindle directly below in line
+        public string StandsOn;           // key of the head spindle whose stack transfer carries it
+        public bool IsSpindle;            // a spindle (false: another picked part)
+        public bool IsPicked;             // picked by the user (SPINDELLOAD "Pick")
         public bool IsHead;               // nothing found standing on it in its column
         public double ColumnTopZ;
         public string Type = "";          // base / head / mid / solo

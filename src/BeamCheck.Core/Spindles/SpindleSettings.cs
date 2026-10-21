@@ -36,6 +36,7 @@ namespace BeamCheck.Core.Spindles
         [DataMember] public double MaxObjectSize;          // objects / parts larger than this (mm) are ignored (buildings, xlines ...)
         [DataMember] public int MaxBlockEntities;          // blocks with more objects than this are ignored (imported buildings, site models)
         [DataMember] public string SkipLayersPattern;      // regex: objects on matching layers are ignored (e.g. "(?i)gebäude|building|arch")
+        [DataMember] public double PickReadRadius;         // "Pick": only objects within this plan distance of the picked parts are read (mm)
 
         // ---- editing tools ----
         [DataMember] public double ZoneRadius;             // work zone around a spindle: plan radius (mm)
@@ -67,6 +68,7 @@ namespace BeamCheck.Core.Spindles
             HeadTopTolerance = 300;
             CandidateRadius = 3500; CandidateBelow = 600; MaxThreads = 0;
             MaxObjectSize = 150000; MaxBlockEntities = 20000; SkipLayersPattern = "";
+            PickReadRadius = 15000;
             ZoneRadius = 3000; ZoneBelow = 1000; ZoneAbove = 4000;
             PickTolerance = 600;
             MarkerRadius = 350;
@@ -86,6 +88,7 @@ namespace BeamCheck.Core.Spindles
             if (MaxObjectSize <= 0) MaxObjectSize = d.MaxObjectSize;
             if (MaxBlockEntities <= 0) MaxBlockEntities = d.MaxBlockEntities;
             if (SkipLayersPattern == null) SkipLayersPattern = "";
+            if (PickReadRadius <= 0) PickReadRadius = d.PickReadRadius;
             SpindleRx = new Regex(SpindlePattern, RegexOptions.CultureInvariant);
             SupportEndRx = new Regex(SupportEndPartPattern, RegexOptions.CultureInvariant);
         }

@@ -10,6 +10,7 @@
   "MaxObjectSize": 150000,
   "MaxBlockEntities": 20000,
   "SkipLayersPattern": "",
+  "PickReadRadius": 15000,
   "ZoneRadius": 3000,
   "ZoneBelow": 1000,
   "ZoneAbove": 4000,

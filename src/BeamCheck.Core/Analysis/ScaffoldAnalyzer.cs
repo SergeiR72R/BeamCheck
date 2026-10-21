@@ -32,6 +32,9 @@ namespace BeamCheck.Core.Analysis
         /// bearing, named D1, D2…
         /// </summary>
         public bool DirectDecks { get; set; }
+
+        /// <summary>Stacks the user said stand on a column (head spindle with nothing found on it): their whole load goes into that column.</summary>
+        public IList<StackLink> StackLinks { get; set; } = new List<StackLink>();
     }
 
     /// <summary>
@@ -109,6 +112,7 @@ namespace BeamCheck.Core.Analysis
                 foreach (var cl in topo.UpperBeams.Where(l => l.Beam.Kind == ElementKind.Console))
                     _consoleRoots[cl.Beam.Id] = cl.Supports.Select(x => x.Column).FirstOrDefault(c => c != null);
                 FindPinLedgers(topo, all, standards, active);
+                FindStackTransfers(topo, all, standards, active, input.StackLinks);
                 if (topo.UpperBeams.Count + active.Count == before)
                     break;
             }
@@ -148,6 +152,7 @@ namespace BeamCheck.Core.Analysis
                 topo.Contributions.AddRange(Resolve(c, topo, 0));
             PruneLevels(topo);
             AddDirectContacts(topo);
+            FindOpenHeads(topo, active);
             return topo;
         }
 
@@ -439,8 +444,8 @@ namespace BeamCheck.Core.Analysis
             const int n = 40;
             foreach (var link in topo.UpperBeams)
             {
-                if (link.IsPinLedger)
-                    continue; // a ledger: its weight is counted with the ledgers
+                if (link.IsPinLedger || link.IsStackTransfer)
+                    continue; // a ledger: its weight is counted with the ledgers; a transfer weighs nothing
                 var pos = link.Supports.Select(x => x.Position).ToArray();
                 double len = link.Beam.PlanLength;
                 var share = new double[pos.Length];
@@ -537,6 +542,165 @@ namespace BeamCheck.Core.Analysis
                 if (!progress)
                     break;
             }
+        }
+
+        // ---------------- stacks standing on column tops ----------------
+
+        /// <summary>
+        /// A stack whose foot (spindle, base plate) stands near the top of a column that carries nothing else - beside it up to
+        /// <see cref="BeamCheckSettings.StackTransferPlanDistance"/>, or above a gap up to <see cref="BeamCheckSettings.StackTransferHeight"/>,
+        /// as when the next stack on a head spindle is modelled offset - passes its whole load into that column. Every foot goes to the
+        /// nearest column top; a foot on a beam, deck or pin, or a stack carried already, is left alone. Stacks the user linked by hand
+        /// (<see cref="AnalysisInput.StackLinks"/>) are taken whatever the distance.
+        /// </summary>
+        private void FindStackTransfers(Topology topo, List<ScaffoldElement> all, List<ScaffoldElement> standards, List<Column> active, IList<StackLink> manual)
+        {
+            bool auto = _s.StackTransferEnabled;
+            if (!auto && (manual == null || manual.Count == 0))
+                return;
+            var runs = BuildRuns(standards);
+            double tol = _s.ColumnXYTolerance;
+            bool Carried(Column run) => active.Any(c => SameStack(c, run, tol));
+
+            if (manual != null)
+            {
+                foreach (var m in manual)
+                {
+                    var lower = active.FirstOrDefault(c => c.Sections.Any(x => x.Id == m.LowerId));
+                    var upper = runs.FirstOrDefault(r => r.Sections.Any(x => x.Id == m.UpperId));
+                    if (lower == null || upper == null || Carried(upper))
+                        continue;
+                    AddStackTransfer(topo, lower, upper, active, true);
+                }
+            }
+
+            if (!auto)
+                return;
+
+            // A column top a beam rests on carries that beam: a foot next to it stands on the beam, not on the column.
+            var bearing = new HashSet<Column>(topo.UpperBeams
+                .Where(l => !l.IsStackTransfer && !l.IsPinLedger && l.Beam.Kind != ElementKind.Console)
+                .SelectMany(l => l.Supports).Select(x => x.Column).Where(c => c != null));
+            System.Text.RegularExpressions.Regex pinRx = string.IsNullOrEmpty(_s.PinPattern) ? null
+                : new System.Text.RegularExpressions.Regex(_s.PinPattern, System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
+            foreach (var up in runs)
+            {
+                if (Carried(up))
+                    continue;
+                Column best = null;
+                double bestDist = double.MaxValue;
+                foreach (var low in runs)
+                {
+                    if (ReferenceEquals(low, up))
+                        continue;
+                    double gap = up.ZBottom - low.ZTop;
+                    if (gap < -100 || gap > _s.StackTransferHeight)
+                        continue;
+                    double d = Vec3.DistanceXY(low.Axis, up.Axis);
+                    if (d <= _s.StackTransferPlanDistance && d < bestDist)
+                    {
+                        best = low;
+                        bestDist = d;
+                    }
+                }
+
+                if (best == null)
+                    continue;
+                var lowerCol = active.FirstOrDefault(c => Vec3.DistanceXY(c.Axis, best.Axis) <= tol && Math.Abs(c.ZTop - best.ZTop) <= 1);
+                if (lowerCol == null || bearing.Contains(lowerCol))
+                    continue;
+                if (!StandsOnSomething(up, all) || StandsOnOtherPart(up, all, pinRx))
+                    continue;
+                AddStackTransfer(topo, lowerCol, up, active, false);
+            }
+        }
+
+        /// <summary>The foot of the stack stands on a beam, console, deck or pin (it is carried by that, not by a column next to it).</summary>
+        private bool StandsOnOtherPart(Column run, List<ScaffoldElement> all, System.Text.RegularExpressions.Regex pinRx)
+        {
+            foreach (var e in all)
+            {
+                bool pin = pinRx != null && e.Kind == ElementKind.Accessory && pinRx.IsMatch((e.Article ?? "") + " " + (e.Description ?? ""));
+                if (pin)
+                {
+                    if (Vec3.DistanceXY((e.Start + e.End) / 2, run.Axis) <= _s.PinPlanTolerance && run.ZBottom >= e.ZMin - 50 && run.ZBottom <= e.ZMax + 100)
+                        return true;
+                    continue;
+                }
+
+                if (e.Kind != ElementKind.Beam && e.Kind != ElementKind.Console && e.Kind != ElementKind.Deck && e.Kind != ElementKind.BeamConnector)
+                    continue;
+                if (e.ZMax < run.ZBottom - 100 || e.ZMax > run.ZBottom + 30)
+                    continue;
+                double t = PlanGeometry.ProjectXY(e.Start, e.End, run.Axis, out double off);
+                double len = e.PlanLength;
+                if (off <= e.Width / 2 + 50 && t * len >= -50 && t * len <= len + 50)
+                    return true;
+            }
+
+            return false;
+        }
+
+        private void AddStackTransfer(Topology topo, Column lower, Column upper, List<Column> active, bool manual)
+        {
+            var topPart = lower.Sections.OrderByDescending(x => x.ZMax).First();
+            var footPart = upper.Sections.OrderBy(x => x.ZMin).First();
+            var top = new Vec3(lower.Axis.X, lower.Axis.Y, lower.ZTop);
+            var foot = new Vec3(upper.Axis.X, upper.Axis.Y, upper.ZBottom);
+            var link = new BeamLink
+            {
+                Beam = new ScaffoldElement
+                {
+                    Id = "STACK:" + topPart.Id + ">" + footPart.Id,
+                    Kind = ElementKind.Accessory,
+                    Description = "Lastübergabe " + topPart.DisplayName + " → " + footPart.DisplayName,
+                    Start = top,
+                    End = foot,
+                    ZMin = Math.Min(top.Z, foot.Z),
+                    ZMax = Math.Max(top.Z, foot.Z),
+                },
+                IsStackTransfer = true,
+                IsManual = manual,
+            };
+            link.Supports.Add(new BeamSupport { Column = lower, Position = 0 });
+            upper.SupportBeam = link.Beam;
+            upper.Position = 0;
+            upper.OnBeam = true;
+            upper.Name = "auf " + (lower.Name ?? topPart.DisplayName);
+            link.Loaded.Add(upper);
+            active.Add(upper);
+            topo.UpperBeams.Add(link);
+            topo.Warnings.Add(string.Format(CultureInfo.InvariantCulture,
+                "ℹ {0}: auf dem Kopf ({1}, Z {2:0}) steht {3} — {4:0} mm daneben, Fuß {5:0} mm über dem Kopf{6}; seine gesamte Last geht in diesen Ständer.",
+                lower.Name ?? topPart.DisplayName, topPart.DisplayName, lower.ZTop, footPart.DisplayName, Vec3.DistanceXY(top, foot), upper.ZBottom - lower.ZTop,
+                manual ? " (vom Benutzer gewählt)" : ""));
+        }
+
+        /// <summary>Columns of the load path whose top is a head spindle with nothing found on it (no stack, no beam, no transfer).</summary>
+        private void FindOpenHeads(Topology topo, List<Column> active)
+        {
+            if (string.IsNullOrEmpty(_s.HeadPartPattern))
+                return;
+            var rx = new System.Text.RegularExpressions.Regex(_s.HeadPartPattern, System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+            var carrying = new HashSet<Column>(topo.UpperBeams
+                .Where(l => !l.IsPinLedger && l.Beam.Kind != ElementKind.Console)
+                .SelectMany(l => l.Supports).Select(x => x.Column).Where(c => c != null));
+            foreach (var c in active)
+            {
+                if (carrying.Contains(c) || c.Sections.Count == 0)
+                    continue;
+                var top = c.Sections.OrderByDescending(x => x.ZMax).First();
+                if (!rx.IsMatch((top.Article ?? "") + " " + (top.Description ?? "")))
+                    continue;
+                topo.OpenHeads.Add(c);
+            }
+
+            if (topo.OpenHeads.Count > 0)
+                topo.Warnings.Add(string.Format(CultureInfo.InvariantCulture,
+                    "ℹ Kopfspindel ohne Last darauf: {0} — prüfen, ob darauf etwas steht (BEAMLOAD fragt danach; Abstand für die automatische Übergabe: {1:0} mm daneben, {2:0} mm darüber).",
+                    string.Join(", ", topo.OpenHeads.Select(c => (c.Name ?? "") + " Z " + c.ZTop.ToString("0", CultureInfo.InvariantCulture))),
+                    _s.StackTransferPlanDistance, _s.StackTransferHeight));
         }
 
         /// <summary>

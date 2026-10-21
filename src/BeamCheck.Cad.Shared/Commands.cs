@@ -168,7 +168,98 @@ namespace BeamCheck.Cad
                 return;
             }
 
+            AskOpenHeads(doc, session, classifier, toMm, idMap, false);
             RunDialogLoop(doc, session, classifier, toMm, idMap);
+        }
+
+        /// <summary>
+        /// Head spindles in the load path with nothing found on them: the user picks the spindle / standard of the stack that stands on
+        /// each one (modelled too far beside or above it to be found), its whole load then goes into that column. Stacks within
+        /// StackTransferPlanDistance / StackTransferHeight are found without asking. With <paramref name="always"/> and no open head
+        /// left, the user picks the head and the stack on it.
+        /// </summary>
+        private static void AskOpenHeads(Document doc, BeamLoadSession session, ElementClassifier classifier, double toMm, Dictionary<string, ObjectId> idMap, bool always)
+        {
+            var ed = doc.Editor;
+            var db = doc.Database;
+            var asked = new HashSet<string>();
+            int linked = 0;
+            while (true)
+            {
+                var head = session.Topology.OpenHeads.FirstOrDefault(c => !asked.Contains(TopSection(c).Id));
+                string lowerId;
+                string lowerText;
+                if (head != null)
+                {
+                    var top = TopSection(head);
+                    asked.Add(top.Id);
+                    lowerId = top.Id;
+                    lowerText = (head.Name ?? "") + " " + top.DisplayName;
+                    var hl = idMap.TryGetValue(top.Id, out var hid) ? new List<ObjectId> { hid } : new List<ObjectId>();
+                    Highlight(db, hl, true);
+                    var kwo = new PromptKeywordOptions(string.Format(CultureInfo.InvariantCulture,
+                        "\nKopfspindel {0} (Oberkante Z={1:0}): nichts darauf gefunden. Was steht darauf? [Wählen/Nichts/Keine weiteren] <Wählen>: ",
+                        lowerText.Trim(), head.ZTop)) { AllowNone = true };
+                    kwo.Keywords.Add("Pick", "Wählen", "Wählen");
+                    kwo.Keywords.Add("Nothing", "Nichts", "Nichts");
+                    kwo.Keywords.Add("Stop", "Keine", "Keine weiteren");
+                    kwo.Keywords.Default = "Pick";
+                    var kw = ed.GetKeywords(kwo);
+                    Highlight(db, hl, false);
+                    if (kw.Status == PromptStatus.Cancel || (kw.Status == PromptStatus.OK && kw.StringResult == "Stop"))
+                        break;
+                    if (kw.Status == PromptStatus.OK && kw.StringResult == "Nothing")
+                        continue;
+                }
+                else
+                {
+                    if (!always)
+                        break;
+                    always = false;
+                    var pl = ed.GetEntity("\nKopf (Spindel / Ständer) wählen, auf dem etwas steht, das nicht gefunden wurde: ");
+                    if (pl.Status != PromptStatus.OK)
+                        break;
+                    var low = ReadStandards(doc, session, classifier, toMm, idMap, pl.ObjectId);
+                    if (low == null)
+                        continue;
+                    lowerId = low.Id;
+                    lowerText = low.DisplayName;
+                }
+
+                var pu = ed.GetEntity("\nSpindel / Ständer wählen, der auf " + lowerText.Trim() + " steht (seine ganze Last geht hinein): ");
+                if (pu.Status != PromptStatus.OK)
+                    continue;
+                var upper = ReadStandards(doc, session, classifier, toMm, idMap, pu.ObjectId);
+                if (upper == null)
+                    continue;
+                session.LinkStack(lowerId, upper);
+                ed.WriteMessage("\n  " + session.StatusMessage);
+                linked++;
+            }
+
+            if (linked > 0)
+                ed.WriteMessage("\nVerbundene Ständer: " + linked + ". Berechnung aktualisiert — Ergebnis im Dialog.");
+        }
+
+        private static ScaffoldElement TopSection(BeamCheck.Core.Analysis.Column c) => c.Sections.OrderByDescending(x => x.ZMax).First();
+
+        /// <summary>The lowest standard of a picked object (a spindle, UVR …), or null with a message.</summary>
+        private static ScaffoldElement ReadStandards(Document doc, BeamLoadSession session, ElementClassifier classifier, double toMm, Dictionary<string, ObjectId> idMap, ObjectId id)
+        {
+            using (var tr = doc.Database.TransactionManager.StartTransaction())
+            {
+                var reader = new CadElementReader(tr, doc.Database, session.Settings, classifier, toMm);
+                var found = reader.ReadPickedStandards((Entity)tr.GetObject(id, OpenMode.ForRead), out string info);
+                foreach (var kv in reader.TopLevelIds)
+                    idMap[kv.Key] = kv.Value;
+                tr.Commit();
+                var std = found.OrderBy(x => x.ZMin).FirstOrDefault();
+                if (std == null)
+                    doc.Editor.WriteMessage("\n  Kein Ständer: " + info);
+                else
+                    std = session.Input.Candidates.FirstOrDefault(c => c.Id == std.Id) ?? std;
+                return std;
+            }
         }
 
         /// <summary>Writes what was recognised around the picked standards (kind, article, name, extents) to BeamCheck.log.</summary>
@@ -232,6 +323,10 @@ namespace BeamCheck.Cad
 
                     case FormAction.Breakdown:
                         WriteBreakdown(doc, session);
+                        break;
+
+                    case FormAction.LinkStack:
+                        AskOpenHeads(doc, session, classifier, toMm, idMap, true);
                         break;
 
                     case FormAction.ExportDwg:

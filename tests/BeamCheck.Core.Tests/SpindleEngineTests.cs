@@ -74,11 +74,41 @@ namespace BeamCheck.Core.Tests
         }
 
         [Fact]
-        public void T3_HeadSpindleLinkedToTheSpindleAbove_LoadGoesDownTheColumn()
+        public void T3_StackAbove500mmGap_IsCarriedByTheHeadSpindleAutomatically()
         {
+            // head spindle, 500 mm gap (more than ColumnGapTolerance 300), spindle directly above: joined by the stack transfer
             var m = new Model();
             var lb = m.Sp(0, 0, 0, 600); m.Vt(0, 0, 600, 2600); var lh = m.Sp(0, 0, 2600, 3200);
             var ub = m.Sp(0, 0, 3700, 4300); var uv = m.Vt(0, 0, 4300, 6300);
+            var eng = Engine(m);
+            var sc = new Sidecar();
+            var r = eng.Run(sc);
+            Assert.Empty(r.OpenHeads);
+            Assert.Equal(KN(6 + 26), S(r, lh).DeadKn, Tol);
+            Assert.Equal(KN(6 + 20 + 6 + 26), S(r, lb).DeadKn, Tol);
+            Assert.True(S(r, ub).HasBelow);
+            Assert.Equal(lh.Id, S(r, ub).StandsOn);
+            Assert.Equal(r.ModelWeightKn, r.BaseSpindlesKn, Tol);
+
+            // a manual load on the upper spindle reaches the base spindle
+            sc.Get(ub.Id, true).Manual.Add(new ManualItem { Description = "test", DeadKn = 1, ServiceKn = 0.5 });
+            r = eng.Run(sc, r, eng.KeysNear(r, 0, 0));
+            Assert.Equal(KN(6 + 20 + 6 + 26) + 1, S(r, lb).DeadKn, Tol);
+            Assert.Equal(0.5, S(r, lb).ServiceKn, Tol);
+
+            // a removed part is removed from every spindle
+            sc.Excluded.Add(uv.Id);
+            r = eng.Run(sc, r, eng.KeysNear(r, 0, 0));
+            Assert.Equal(KN(6 + 20 + 6 + 6) + 1, S(r, lb).DeadKn, Tol);
+        }
+
+        [Fact]
+        public void T3b_HeadSpindleLinkedByHandToTheSpindleFarAbove_LoadGoesDownTheColumn()
+        {
+            // 1.5 m gap: too far for the automatic transfer, the user links it
+            var m = new Model();
+            var lb = m.Sp(0, 0, 0, 600); m.Vt(0, 0, 600, 2600); var lh = m.Sp(0, 0, 2600, 3200);
+            var ub = m.Sp(0, 0, 4700, 5300); m.Vt(0, 0, 5300, 7300);
             var eng = Engine(m);
             var sc = new Sidecar();
             var r = eng.Run(sc);
@@ -92,16 +122,83 @@ namespace BeamCheck.Core.Tests
             Assert.Equal(KN(6 + 20 + 6 + 26), S(r, lb).DeadKn, Tol);
             Assert.False(S(r, lh).Open);
 
-            // manual load on the head spindle reaches the base spindle
             e.Manual.Add(new ManualItem { Description = "test", DeadKn = 1, ServiceKn = 0.5 });
             r = eng.Run(sc, r, eng.KeysNear(r, 0, 0));
             Assert.Equal(KN(6 + 20 + 6 + 26) + 1, S(r, lb).DeadKn, Tol);
             Assert.Equal(0.5, S(r, lb).ServiceKn, Tol);
+        }
 
-            // a removed part is removed from every spindle
-            sc.Excluded.Add(uv.Id);
-            r = eng.Run(sc, r, eng.KeysNear(r, 0, 0));
-            Assert.Equal(KN(6 + 20 + 6 + 6) + 1, S(r, lb).DeadKn, Tol);
+        [Fact]
+        public void T9_StackOffset500mmBesideTheHeadSpindle_LoadGoesIntoTheHeadSpindle()
+        {
+            // the drawing of the user: the next stack stands 0.5 m beside the head spindle, its foot at the head
+            var m = new Model();
+            var lb = m.Sp(0, 0, 0, 600); m.Vt(0, 0, 600, 2600); var lh = m.Sp(0, 0, 2600, 3200);
+            var ub = m.Sp(500, 0, 3200, 3800); m.Vt(500, 0, 3800, 5800);
+            var eng = Engine(m);
+            var r = eng.Run(new Sidecar());
+            Assert.Empty(r.OpenHeads);
+            Assert.Equal(KN(6 + 26), S(r, lh).DeadKn, Tol);
+            Assert.Equal(KN(6 + 20 + 6 + 26), S(r, lb).DeadKn, Tol);
+            Assert.Equal("mid", S(r, ub).Type);
+            Assert.Equal(r.ModelWeightKn, r.BaseSpindlesKn, Tol);
+
+            // switched off: the head spindle is open again
+            var bs = Bs();
+            bs.StackTransferEnabled = false;
+            r = new SpindleEngine(m.Scan, Ss(), bs, 3).Run(new Sidecar());
+            Assert.True(S(r, lh).Open);
+            Assert.Equal(KN(6), S(r, lh).DeadKn, Tol);
+        }
+
+        [Fact]
+        public void T9b_StackOnABeamNextToTheSupport_IsLeftToTheBeam()
+        {
+            // a stack standing on an RCS beam 400 mm from its support is carried by the beam (lever rule), not moved into the support
+            var m = new Model();
+            var a = m.Sp(0, 0, 0, 600); m.Vt(0, 0, 600, 3000);
+            var b = m.Sp(4000, 0, 0, 600); m.Vt(4000, 0, 600, 3000);
+            m.Bm(0, 0, 4000, 0, 3000, 3200, 0);
+            m.Sp(400, 0, 3200, 3800); m.Vt(400, 0, 3800, 6000);
+            var r = Engine(m).Run(new Sidecar());
+            Assert.Equal(KN(26 + 0.9 * 26), S(r, a).DeadKn, Tol);
+            Assert.Equal(KN(26 + 0.1 * 26), S(r, b).DeadKn, Tol);
+        }
+
+        [Fact]
+        public void T10_PickedVertical_GathersEverythingAboveIt()
+        {
+            var m = new Model();
+            m.Sp(0, 0, 0, 600); var v1 = m.Vt(0, 0, 600, 2600); var v2 = m.Vt(0, 0, 2600, 4600); m.Vt(0, 0, 4600, 6600);
+            var lh = m.Sp(0, 0, 6600, 7200); m.Sp(400, 0, 7200, 7800); m.Vt(400, 0, 7800, 9800);
+            var eng = Engine(m);
+            eng.TargetIds.Add(v2.Id);
+            var r = eng.Run(new Sidecar());
+            var t = S(r, v2);
+            Assert.True(t.IsPicked);
+            Assert.Equal("picked", t.Type);
+            Assert.False(t.Open);
+            // v2, v3, head spindle, and the stack beside the head (6 + 20)
+            Assert.Equal(KN(20 + 20 + 6 + 26), t.DeadKn, Tol);
+            // a picked part is not a bottom spindle
+            Assert.Equal(r.ModelWeightKn, r.BaseSpindlesKn, Tol);
+        }
+
+        [Fact]
+        public void T11_PickedPin_IsCalculatedAtTheStackStandingOnIt()
+        {
+            var m = new Model();
+            m.Sp(0, 0, 0, 600); m.Vt(0, 0, 600, 2600);
+            var pin = m.E(ElementKind.Accessory, new Vec3(0, 0, 2600), new Vec3(0, 0, 2900), 40, 2600, 2900, 1, "UH-Zapfen");
+            var v = m.Vt(0, 0, 2650, 4650);
+            var foot = SpindleEngine.FootOf(pin, m.Scan.Elements);
+            Assert.Same(v, foot);
+            Assert.Same(v, SpindleEngine.FootOf(v, m.Scan.Elements));
+            var eng = Engine(m);
+            eng.TargetIds.Add(foot.Id);
+            var r = eng.Run(new Sidecar());
+            // the stack and the pin itself
+            Assert.Equal(KN(20 + 1), S(r, v).DeadKn, Tol);
         }
 
         [Fact]

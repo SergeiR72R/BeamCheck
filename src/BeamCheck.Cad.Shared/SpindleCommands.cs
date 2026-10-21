@@ -11,6 +11,7 @@ using Autodesk.AutoCAD.EditorInput;
 using Autodesk.AutoCAD.Geometry;
 using Autodesk.AutoCAD.GraphicsInterface;
 using Autodesk.AutoCAD.Runtime;
+using BeamCheck.Core.Model;
 using BeamCheck.Core.Report;
 using BeamCheck.Core.Settings;
 using BeamCheck.Core.Spindles;
@@ -84,6 +85,8 @@ namespace BeamCheck.Cad
             public Sidecar Sidecar;
             public string SidecarPath;
             public CalcResult Res;
+            public HashSet<string> Picked;          // "Pick": the parts the user picked (element ids); null = all spindles
+            public bool PickMode { get { return Picked != null; } }
             public bool Isolated;
             public List<Drawable> Markers = new List<Drawable>();
             public Editor Ed { get { return Doc.Editor; } }
@@ -94,6 +97,22 @@ namespace BeamCheck.Cad
             public SpindleInfo ByKey(string k) { return Res.Spindles.FirstOrDefault(x => x.Key == k); }
             public ObjectId Oid(string elementId) { ObjectId id; return elementId != null && Ids.TryGetValue(elementId, out id) ? id : ObjectId.Null; }
             public ObjectId Oid(PartInfo p) { return Oid(p.Handle); }
+
+            /// <summary>The rows of the list, the Excel sheet and the labels: the picked parts, or all spindles.</summary>
+            public bool Shows(SpindleInfo sp) { return !PickMode || Picked.Contains(sp.Key); }
+            public IEnumerable<SpindleInfo> Shown { get { return Res.Spindles.Where(Shows); } }
+            public SpindleInfo Max { get { return Shown.OrderByDescending(x => x.DesignKn).FirstOrDefault(); } }
+
+            /// <summary>Open head spindles that matter: all, or (Pick) those whose load would reach a picked part.</summary>
+            public List<SpindleInfo> OpenHeads
+            {
+                get
+                {
+                    if (!PickMode) return Res.OpenHeads;
+                    var picked = Shown.ToList();
+                    return Res.OpenHeads.Where(o => picked.Any(p => p == o || p.UsedIds.Contains(o.Key) || p.ColumnIds.Contains(o.Key))).ToList();
+                }
+            }
 
             public void RecalcNear(double x, double y)
             {
@@ -136,19 +155,26 @@ namespace BeamCheck.Cad
             int loadClass = pir.Status == PromptStatus.OK ? pir.Value : run.Bcs.DefaultLoadClass;
 
             // whole model or a part of it (big models: select only the area you need)
-            var so = new PromptKeywordOptions("\nCalculate [All/Select] <All>: ", "All Select") { AllowNone = true };
+            // whole model, a part of it (big models: select only the area you need), or picked parts (spindle, UVA, UVR, UVH, UH-Zapfen …)
+            var so = new PromptKeywordOptions("\nCalculate [All/Select/Pick] <All>: ", "All Select Pick") { AllowNone = true };
             so.Keywords.Default = "All";
             var sr = ed.GetKeywords(so);
             if (sr.Status == PromptStatus.Cancel) return;
-            ObjectId[] selected = null;
+            ObjectId[] selected = null, picked = null;
             if (sr.Status == PromptStatus.OK && sr.StringResult == "Select")
             {
                 var ps = ed.GetSelection(new PromptSelectionOptions { MessageForAdding = "\nSelect the area to calculate (window / crossing; include everything standing on these spindles): " });
                 if (ps.Status != PromptStatus.OK) return;
                 selected = ps.Value.GetObjectIds();
             }
+            if (sr.Status == PromptStatus.OK && sr.StringResult == "Pick")
+            {
+                var ps = ed.GetSelection(new PromptSelectionOptions { MessageForAdding = "\nPick the spindle(s) / vertical(s) to calculate - spindle, UVA, UVR, UVH, UH-Zapfen, base plate …: " });
+                if (ps.Status != PromptStatus.OK) return;
+                picked = ps.Value.GetObjectIds();
+            }
 
-            var pw = new SpindleProgressWindow("SPINDELLOAD – " + (selected == null ? "whole model" : selected.Length + " selected objects"));
+            var pw = new SpindleProgressWindow("SPINDELLOAD – " + (picked != null ? picked.Length + " picked part(s)" : selected == null ? "whole model" : selected.Length + " selected objects"));
             try
             {
                 pw.Show();
@@ -159,8 +185,10 @@ namespace BeamCheck.Cad
                 {
                     var scanner = new SpindleScanner(doc.Database, run.S, run.Bcs, tr);
                     Func<int, int, string, bool> prog = (i, n, what) => { pw.Report("Reading the drawing (BeamCheck part reader)", i, n, false, what); return !pw.Cancelled; };
-                    run.Scan = selected == null ? scanner.ScanModelSpace(prog) : scanner.ScanEntities(selected, prog);
+                    double[] region = picked == null ? null : scanner.RegionAround(picked, run.S.PickReadRadius, run.S.CandidateBelow + 1000);
+                    run.Scan = selected != null ? scanner.ScanEntities(selected, prog) : scanner.ScanModelSpace(prog, region);
                     run.Ids = scanner.Ids;
+                    if (picked != null) run.Picked = PickedTargets(run, scanner, picked);
                     tr.Commit();
                 }
                 if (run.Scan.Cancelled) { ed.WriteMessage("\nCancelled while reading the drawing."); return; }
@@ -177,7 +205,12 @@ namespace BeamCheck.Cad
                     foreach (var slow in run.Scan.SlowObjects.Take(10)) ed.WriteMessage("\n   " + slow);
                 }
                 pw.Report("Preparing the calculation", 0, 0, true, run.Scan.Elements.Count + " parts");
-                if (run.Scan.SpindleCores.Count == 0)
+                if (run.PickMode && run.Picked.Count == 0)
+                {
+                    ed.WriteMessage("\nThe picked object(s) are not recognised as scaffold parts. Run SPINDELDUMP on them.\n");
+                    return;
+                }
+                if (run.Scan.SpindleCores.Count == 0 && !run.PickMode)
                 {
                     ed.WriteMessage("\nNo spindles found (" + run.Scan.Elements.Count + " parts read). Run SPINDELDUMP on a spindle and check SpindlePattern in the settings.\n");
                     return;
@@ -185,6 +218,7 @@ namespace BeamCheck.Cad
                 run.SidecarPath = SidecarPath(doc);
                 run.Sidecar = Sidecar.Load(run.SidecarPath);
                 run.Engine = new SpindleEngine(run.Scan, run.S, run.Bcs, loadClass);
+                if (run.PickMode) run.Engine.TargetIds = new HashSet<string>(run.Picked);
                 if (run.Engine.GridSkipped > 0) ed.WriteMessage("\nIgnored " + run.Engine.GridSkipped + " part(s) with an impossible size.");
                 run.Res = RunEngine(run, pw, null);
                 run.Res.ReadMillis = readClock.ElapsedMilliseconds - run.Res.Millis;
@@ -192,16 +226,16 @@ namespace BeamCheck.Cad
                 if (run.Res.Cancelled) ed.WriteMessage("\nCancelled: spindles not yet calculated are marked 'Not calculated' in the list.");
             }
             finally { pw.Close(); pw.Dispose(); }
-            if (run.Scan.Cancelled || run.Scan.SpindleCores.Count == 0) return;
+            if (run.Scan.Cancelled || (run.Scan.SpindleCores.Count == 0 && !run.PickMode) || (run.PickMode && run.Picked.Count == 0)) return;
 
             PrintSummary(run);
 
             try
             {
                 ShowMarkers(run);
-                if (run.Res.OpenHeads.Count > 0)
+                if (run.OpenHeads.Count > 0)
                 {
-                    var ho = new PromptKeywordOptions("\n" + run.Res.OpenHeads.Count + " head spindle(s) with nothing found on top. Answer them now one by one? [Yes/No] <Yes>: ", "Yes No") { AllowNone = true };
+                    var ho = new PromptKeywordOptions("\n" + run.OpenHeads.Count + " head spindle(s) with nothing found on top. Answer them now one by one? [Yes/No] <Yes>: ", "Yes No") { AllowNone = true };
                     ho.Keywords.Default = "Yes";
                     var hr = ed.GetKeywords(ho);
                     if (hr.Status == PromptStatus.Cancel) return;
@@ -227,8 +261,35 @@ namespace BeamCheck.Cad
                             (res.ModelWeightKn > 0 ? "  (" + (res.BaseSpindlesKn / res.ModelWeightKn * 100).ToString("0") + " %; < 100 % = load not reaching a spindle, > 100 % = conservative uplift / double paths)" : ""));
             ed.WriteMessage("\nTo check: " + res.ProblemCount + " spindles  (open head spindles: " + res.OpenHeads.Count + ")");
             var m = res.Max;
-            if (m != null) ed.WriteMessage("\nMAXIMUM: spindle S" + m.Index + "  Gk " + s.Fmt(m.DeadKn) + "  Qk " + s.Fmt(m.ServiceKn) + "  Fd " + s.Fmt(m.DesignKn) + " kN");
+            if (m != null && !run.PickMode) ed.WriteMessage("\nMAXIMUM: spindle S" + m.Index + "  Gk " + s.Fmt(m.DeadKn) + "  Qk " + s.Fmt(m.ServiceKn) + "  Fd " + s.Fmt(m.DesignKn) + " kN");
+            foreach (var sp in run.PickMode ? run.Shown.ToList() : new List<SpindleInfo>())
+            {
+                ed.WriteMessage("\nPICKED S" + sp.Index + "  " + Trunc(sp.Core != null ? sp.Core.Label : sp.Key, 40) + "  Z " + sp.MinZ.ToString("0") + ":  Gk " + s.Fmt(sp.DeadKn) + "  Qk " + s.Fmt(sp.ServiceKn) + "  Fk " + s.Fmt(sp.CharKn) + "  Fd " + s.Fmt(sp.DesignKn) + " kN");
+                foreach (var pr in sp.Problems.Take(3)) ed.WriteMessage("\n   ! " + Trunc(pr, 150));
+            }
             ed.WriteMessage("\n------------------------------------------------------------\n");
+        }
+
+        /// <summary>
+        /// The parts to calculate for "Pick": a picked standard (spindle, UVA, UVR, UVH …) itself - the lowest one if the object holds
+        /// several - another part (UH-Zapfen, base plate, nut …) stands for the stack standing on it.
+        /// </summary>
+        private static HashSet<string> PickedTargets(Run run, SpindleScanner scanner, IEnumerable<ObjectId> picked)
+        {
+            var targets = new HashSet<string>();
+            foreach (var id in picked)
+            {
+                var els = scanner.ElementsOf(id).Select(k => { ScaffoldElement e; return run.Scan.ElementById.TryGetValue(k, out e) ? e : null; }).Where(e => e != null).ToList();
+                var foot = els.Where(e => e.Kind == ElementKind.Standard).OrderBy(e => e.ZMin).FirstOrDefault()
+                           ?? els.Select(e => SpindleEngine.FootOf(e, run.Scan.Elements)).FirstOrDefault(e => e != null);
+                if (foot == null)
+                {
+                    run.Ed.WriteMessage("\n  Picked " + id.ObjectClass.DxfName + " " + id.Handle + ": " + (els.Count == 0 ? "not recognised as a scaffold part" : "no standard stands on it") + " - not calculated.");
+                    continue;
+                }
+                targets.Add(foot.Id);
+            }
+            return targets;
         }
 
         /// <summary>Runs the engine on background threads while the progress window stays alive on the main thread.</summary>
@@ -250,6 +311,13 @@ namespace BeamCheck.Cad
         private static string Header(Run run)
         {
             var res = run.Res; var s = run.S; var m = res.Max;
+            if (run.PickMode)
+            {
+                m = run.Shown.OrderByDescending(x => x.DesignKn).FirstOrDefault();
+                return "Picked parts: " + run.Picked.Count + "  (calculated with the " + res.Spindles.Count + " spindles around them)     open head spindles above them: " + run.OpenHeads.Count + "     removed parts: " + run.Sidecar.Excluded.Count +
+                       "\nMaximum of the picked: S" + (m != null ? m.Index.ToString() : "-") + "   Fd " + (m != null ? s.Fmt(m.DesignKn) : "-") + " kN      load class " + res.LoadClass + " (" + s.Fmt(res.QKnPerM2) + " kN/m²)" +
+                       "\nEverything standing on each picked part is collected (columns, beams, consoles, stacks on its head).      red = open head above, yellow = BeamCheck warning, green = checked.";
+            }
             return "Spindles: " + res.Spindles.Count + "     to check: " + res.ProblemCount + "     open head spindles: " + res.OpenHeads.Count + "     removed parts: " + run.Sidecar.Excluded.Count +
                    "\nMaximum: S" + (m != null ? m.Index.ToString() : "-") + "   Fd " + (m != null ? s.Fmt(m.DesignKn) : "-") + " kN      load class " + res.LoadClass + " (" + s.Fmt(res.QKnPerM2) + " kN/m²)" +
                    "\nModel weight " + s.Fmt(res.ModelWeightKn, "0.0") + " kN, on bottom spindles " + s.Fmt(res.BaseSpindlesKn, "0.0") + " kN" +
@@ -267,7 +335,7 @@ namespace BeamCheck.Cad
             {
                 EndIsolation(run);      // back in the list: whole model visible again
                 ShowMarkers(run);
-                var form = new SpindleListForm(run.Res, run.S, run.Sidecar, Header(run));
+                var form = new SpindleListForm(run.Res, run.S, run.Sidecar, Header(run), run.Shows);
                 AcApp.ShowModalDialog(form);
                 var action = form.Action;
                 var sp = form.SelectedKey != null ? run.ByKey(form.SelectedKey) : null;
@@ -313,7 +381,7 @@ namespace BeamCheck.Cad
         // =====================================================================
         private static void HeadPass(Run run)
         {
-            var list = run.Res.OpenHeads.Select(x => x.Key).ToList();
+            var list = run.OpenHeads.Select(x => x.Key).ToList();
             for (int k = 0; k < list.Count; k++)
             {
                 var sp = run.ByKey(list[k]);
@@ -654,8 +722,9 @@ namespace BeamCheck.Cad
             {
                 var tm = TransientManager.CurrentTransientManager;
                 double u = run.Unit, r = run.S.MarkerRadius / u;
-                var max = run.Res.Max;
-                foreach (var sp in run.Res.Spindles)
+                var max = run.Max;
+                var heads = new HashSet<SpindleInfo>(run.OpenHeads);
+                foreach (var sp in run.Res.Spindles.Where(x => run.Shows(x) || heads.Contains(x)))
                 {
                     short color;
                     if (sp == max) color = 1;
@@ -759,7 +828,7 @@ namespace BeamCheck.Cad
                 var xb = new XlsxBuilder();
                 var sh = xb.AddSheet("Spindles");
                 sh.Rows.Add(new object[] { "No", "Type", "Element", "X mm", "Y mm", "Z foot mm", "Z top mm", "Gk kN", "Qk kN", "Fk kN", "Fd kN", "Manual G kN", "Manual Q kN", "Status", "Your changes", "To check" });
-                foreach (var sp in res.Spindles)
+                foreach (var sp in run.Shown)
                 {
                     var e = run.Sidecar.Get(sp.Key, false);
                     string ch = e == null ? "" : string.Join(", ", new[]
@@ -816,7 +885,7 @@ namespace BeamCheck.Cad
             var db = doc.Database;
             double unit = run.Unit;
             double h = s.TextHeight * s.Scale / unit;
-            var max = res.Max;
+            var max = run.Max;
             using (doc.LockDocument())
             using (var tr = db.TransactionManager.StartTransaction())
             {
@@ -833,7 +902,7 @@ namespace BeamCheck.Cad
                     var e = tr.GetObject(id, OpenMode.ForRead) as DBText;
                     if (e != null && string.Equals(e.Layer, s.Layer, StringComparison.OrdinalIgnoreCase)) { e.UpgradeOpen(); e.Erase(); }
                 }
-                foreach (var sp in res.Spindles)
+                foreach (var sp in run.Shown)
                 {
                     double v = s.ShowDesignValues ? sp.DesignKn : sp.CharKn;
                     var t = new DBText

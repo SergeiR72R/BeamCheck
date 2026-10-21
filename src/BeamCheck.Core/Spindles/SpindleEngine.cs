@@ -77,6 +77,12 @@ namespace BeamCheck.Core.Spindles
         public volatile int Done, Total;
         public int Threads = Math.Max(1, Environment.ProcessorCount);
 
+        /// <summary>
+        /// Picked parts to calculate besides the spindles (SPINDELLOAD "Pick"): element ids of any vertical part - spindle, UVA, UVR,
+        /// UVH, UH-Zapfen, base plate … Each is calculated like a spindle: everything standing on it is collected.
+        /// </summary>
+        public HashSet<string> TargetIds = new HashSet<string>();
+
         public CalcResult Run(Sidecar sc, CalcResult previous = null, ICollection<string> keys = null, CancellationToken cancel = default(CancellationToken))
         {
             var sw = Stopwatch.StartNew();
@@ -129,9 +135,16 @@ namespace BeamCheck.Core.Spindles
                 sp.Problems.Clear(); sp.Problems.Add("Not calculated (cancelled).");
             }
             res.Cancelled = cancel.IsCancellationRequested;
+            MarkCarriedSpindles(res);
+            foreach (var sp in res.Spindles.Where(x => x.IsPicked && x.Calculated))
+            {
+                var above = res.Spindles.Where(o => o != sp && o.Open && (sp.UsedIds.Contains(o.Key) || sp.ColumnIds.Contains(o.Key))).ToList();
+                if (above.Count > 0)
+                    sp.Problems.Add("Open head spindle(s) above it: " + string.Join(", ", above.Select(o => "S" + o.Index)) + " - answer them so that what stands on them is counted here too.");
+            }
 
             res.ModelWeightKn = LoadCalculator.KgToKn(_scan.Elements.Where(e => !excluded.Contains(e.Id)).Sum(e => e.WeightKg));
-            res.BaseSpindlesKn = res.Spindles.Where(x => !x.HasBelow).Sum(x => x.DeadKn);
+            res.BaseSpindlesKn = res.Spindles.Where(x => !x.HasBelow && x.IsSpindle).Sum(x => x.DeadKn);
             res.Millis = sw.ElapsedMilliseconds;
             Phase = "Done";
             return res;
@@ -155,6 +168,60 @@ namespace BeamCheck.Core.Spindles
             return res.Spindles.Where(sp => Math.Abs(sp.X - x) <= r && Math.Abs(sp.Y - y) <= r).Select(sp => sp.Key).ToList();
         }
 
+        /// <summary>
+        /// A spindle that is the foot of a stack carried by a stack transfer (it stands on a head spindle beside or above it) is not a
+        /// bottom spindle: its load is in the spindle below already.
+        /// </summary>
+        private void MarkCarriedSpindles(CalcResult res)
+        {
+            var carried = new Dictionary<string, SpindleInfo>();
+            foreach (var sp in res.Spindles.OrderByDescending(x => x.MinZ))   // the head right under a stack first
+            {
+                if (sp.Session == null) continue;
+                foreach (var l in sp.Session.Topology.UpperBeams.Where(l => l.IsStackTransfer))
+                    foreach (var run in l.Loaded)
+                        foreach (var sec in run.Sections)
+                            if (sec.Id != sp.Key && !carried.ContainsKey(sec.Id)) carried[sec.Id] = sp;
+            }
+
+            foreach (var sp in res.Spindles)
+            {
+                SpindleInfo below;
+                bool onTransfer = carried.TryGetValue(sp.Key, out below);
+                sp.HasBelow = sp.HasBelowInLine || onTransfer;
+                sp.Type = sp.IsPicked && !sp.IsSpindle ? "picked" : sp.IsHead ? (sp.HasBelow ? "head" : "solo") : (sp.HasBelow ? "mid" : "base");
+                sp.StandsOn = onTransfer ? below.Key : null;
+            }
+        }
+
+        /// <summary>The direct load path of a spindle: its own column and the stacks standing on its head (stack transfers, also chained).</summary>
+        public static List<Column> DirectColumns(Topology topo)
+        {
+            var cols = new List<Column>(topo.Columns);
+            for (bool more = true; more;)
+            {
+                more = false;
+                foreach (var l in topo.UpperBeams.Where(l => l.IsStackTransfer && l.Supports.Count > 0 && cols.Contains(l.Supports[0].Column)))
+                    foreach (var run in l.Loaded)
+                        if (!cols.Contains(run)) { cols.Add(run); more = true; }
+            }
+            return cols;
+        }
+
+        /// <summary>
+        /// The standard a picked part stands for: a standard (spindle, UVA, UVR, UVH …) itself; another part (UH-Zapfen, base plate,
+        /// nut …) the lowest standard standing on it or passing through it.
+        /// </summary>
+        public static ScaffoldElement FootOf(ScaffoldElement picked, IEnumerable<ScaffoldElement> elements)
+        {
+            if (picked == null || picked.Kind == ElementKind.Standard) return picked;
+            var mid = (picked.Start + picked.End) / 2;
+            double zLow = Math.Min(picked.ZMin, Math.Min(picked.Start.Z, picked.End.Z)), zHigh = Math.Max(picked.ZMax, Math.Max(picked.Start.Z, picked.End.Z));
+            return elements.Where(e => e.Kind == ElementKind.Standard && e.Id != picked.Id && Vec3.DistanceXY((e.Start + e.End) / 2, mid) <= 100
+                                       && e.ZMin >= zLow - 150 && e.ZMin <= zHigh + 300)
+                           .OrderBy(e => e.ZMin).FirstOrDefault();
+        }
+
         // -------------------------------------------------------------------------------------
         private List<SpindleInfo> BuildSpindles()
         {
@@ -166,17 +233,30 @@ namespace BeamCheck.Core.Spindles
                 if (!_scan.ElementById.TryGetValue(core.Handle, out el)) continue;
                 var sp = new SpindleInfo
                 {
-                    Key = core.Handle, Core = core, Element = el,
+                    Key = core.Handle, Core = core, Element = el, IsSpindle = true, IsPicked = TargetIds.Contains(core.Handle),
                     X = (el.Start.X + el.End.X) / 2, Y = (el.Start.Y + el.End.Y) / 2,
                     MinZ = Math.Min(el.ZMin, Math.Min(el.Start.Z, el.End.Z)), MaxZ = Math.Max(el.ZMax, Math.Max(el.Start.Z, el.End.Z)),
                 };
                 sp.ComponentIds.Add(core.Handle);
                 double tol = Math.Max(_bs.ColumnXYTolerance, 30);
-                sp.HasBelow = Near(sp.X - tol, sp.Y - tol, sp.X + tol, sp.Y + tol).Any(o => o != el && o.Kind == ElementKind.Standard
+                sp.HasBelowInLine = Near(sp.X - tol, sp.Y - tol, sp.X + tol, sp.Y + tol).Any(o => o != el && o.Kind == ElementKind.Standard
                                    && Vec3.DistanceXY((o.Start + o.End) / 2, new Vec3(sp.X, sp.Y, 0)) <= tol
                                    && Math.Max(o.ZMax, Math.Max(o.Start.Z, o.End.Z)) <= sp.MinZ + 50
                                    && Math.Max(o.ZMax, Math.Max(o.Start.Z, o.End.Z)) >= sp.MinZ - _bs.ColumnGapTolerance);
+                sp.HasBelow = sp.HasBelowInLine;
                 list.Add(sp);
+            }
+            foreach (var id in TargetIds)
+            {
+                ScaffoldElement el; PartInfo part;
+                if (list.Any(x => x.Key == id) || !_scan.ElementById.TryGetValue(id, out el) || !_scan.PartById.TryGetValue(id, out part)) continue;
+                list.Add(new SpindleInfo
+                {
+                    Key = id, Core = part, Element = el, IsPicked = true, HasBelowInLine = true, HasBelow = true, Type = "picked",
+                    X = (el.Start.X + el.End.X) / 2, Y = (el.Start.Y + el.End.Y) / 2,
+                    MinZ = Math.Min(el.ZMin, Math.Min(el.Start.Z, el.End.Z)), MaxZ = Math.Max(el.ZMax, Math.Max(el.Start.Z, el.End.Z)),
+                    ComponentIds = { id },
+                });
             }
             foreach (var comp in _scan.SpindleComponents)
             {
@@ -274,7 +354,7 @@ namespace BeamCheck.Core.Spindles
             for (int round = 0; round < 4; round++)
             {
                 ses = Session(sp.Element, "spindle S" + sp.Index, forced, excluded);
-                var colIds = new HashSet<string>(ses.Topology.Columns.SelectMany(c => c.Sections).Select(e => e.Id));
+                var colIds = new HashSet<string>(DirectColumns(ses.Topology).SelectMany(c => c.Sections).Select(e => e.Id));
                 var newChain = new List<string> { sp.Key };
                 foreach (var id in colIds)
                     if (id != sp.Key && _byKey.ContainsKey(id) && _byKey[id].MinZ >= sp.MinZ - 1) newChain.Add(id);
@@ -303,9 +383,10 @@ namespace BeamCheck.Core.Spindles
             sp.BaseQk = r.Points.Sum(p => p.Qk);
             sp.BaseFd = r.Points.Sum(p => p.Fd);
             sp.EstimatedWeights = r.Points.Any(p => p.HasEstimatedWeights);
-            sp.ColumnIds = new HashSet<string>(ses.Topology.Columns.SelectMany(c => c.Sections).Select(e => e.Id));
+            var direct = DirectColumns(ses.Topology);
+            sp.ColumnIds = new HashSet<string>(direct.SelectMany(c => c.Sections).Select(e => e.Id));
             sp.UsedIds = new HashSet<string>(ses.Topology.UsedElementIds);
-            sp.ColumnTopZ = ses.Topology.Columns.Count > 0 ? ses.Topology.Columns.Max(c => c.ZTop) : sp.MaxZ;
+            sp.ColumnTopZ = direct.Count > 0 ? direct.Max(c => c.ZTop) : sp.MaxZ;
 
             // linked columns (what stands on a head spindle of this chain): their complete load comes in on top
             foreach (var k in chain)
@@ -362,8 +443,9 @@ namespace BeamCheck.Core.Spindles
             sp.Rows = sp.Rows.OrderByDescending(x => x.Kn).ToList();
 
             // head spindle: nothing in line above it, no beam lying on it, no answer yet
-            sp.IsHead = sp.ColumnTopZ <= sp.MaxZ + _s.HeadTopTolerance && ses.Topology.UpperBeams.Count == 0;
-            sp.Type = sp.IsHead ? (sp.HasBelow ? "head" : "solo") : (sp.HasBelow ? "mid" : "base");
+            // (a picked part that is not a spindle is never a head: open head spindles above it are listed with it instead)
+            sp.IsHead = sp.IsSpindle && sp.ColumnTopZ <= sp.MaxZ + _s.HeadTopTolerance && ses.Topology.UpperBeams.Count == 0;
+            sp.Type = sp.IsPicked && !sp.IsSpindle ? "picked" : sp.IsHead ? (sp.HasBelow ? "head" : "solo") : (sp.HasBelow ? "mid" : "base");
             bool answered = chain.Select(k => sc.Get(k, false)).Any(e => e != null && (e.HeadAnswer != null || e.LinkHandles.Count > 0));
             sp.Open = sp.IsHead && !answered;
             if (sp.Open) sp.Problems.Add("Head spindle: nothing found standing on it - tell the program what it supports.");

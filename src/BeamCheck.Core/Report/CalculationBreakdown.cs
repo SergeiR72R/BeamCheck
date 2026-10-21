@@ -95,7 +95,7 @@ namespace BeamCheck.Core.Report
             {
                 var first = g.First().ViaBeam;
                 var link = topo.UpperBeams.FirstOrDefault(u => u.Beam.Id == first.Id);
-                lines.Add((link != null && link.IsPinLedger ? "Riegel mit Zapfen " : "Träger ") + first.DisplayName + " [" + first.Id + "]" + (link == null ? "" : ", " + link.Supports.Count + " Auflager, Positionen mm: " +
+                lines.Add((link != null && link.IsPinLedger ? "Riegel mit Zapfen " : link != null && link.IsStackTransfer ? "Ständer auf dem Kopf, " : "Träger ") + first.DisplayName + " [" + first.Id + "]" + (link == null ? "" : ", " + link.Supports.Count + " Auflager, Positionen mm: " +
                           string.Join(" / ", link.Supports.Select(x => x.Position.ToString("0", De) + (x.Column == null ? " (außerhalb der Auswahl)" : "")))));
                 lines.Add("Ebene;Fläche m²;Faktor;Qk kN;Gk Belag kN");
                 double beamQ = 0;
@@ -244,7 +244,7 @@ namespace BeamCheck.Core.Report
             foreach (var link in topo.UpperBeams.Where(l => topo.Transfers.Any(t => t.Link == l)))
             {
                 lines.Add("");
-                string kind = link.IsPinLedger ? "Riegel mit Zapfen" : link.Beam.Kind == ElementKind.Console ? "Konsole" : "Träger";
+                string kind = link.IsPinLedger ? "Riegel mit Zapfen" : link.IsStackTransfer ? (link.IsManual ? "Vom Benutzer gewählt:" : "Versetzt auf dem Kopf:") : link.Beam.Kind == ElementKind.Console ? "Konsole" : "Träger";
                 lines.Add(kind + " " + link.Beam.DisplayName + " [" + link.Beam.Id + "], L = " + link.Beam.PlanLength.ToString("0", De) + " mm, Auflager: " +
                           string.Join("; ", link.Supports.Select((x, i) => (i + 1) + " bei " + x.Position.ToString("0", De) + " mm" + (x.Column == null ? " (keine gewählte Stütze: Anteil geht verloren)" : " = " + ColumnName(x.Column)))));
                 string head = "Ständer;Position x mm;" + (link.IsPinLedger ? "Zapfen;" : "") + "Last des Ständers Gk kN;Qk kN";

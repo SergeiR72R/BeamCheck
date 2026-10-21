@@ -19,6 +19,7 @@ namespace BeamCheck.Cad.UI
         Add,
         ExportDwg,
         Breakdown,
+        LinkStack,
     }
 
     /// <summary>
@@ -132,6 +133,7 @@ namespace BeamCheck.Cad.UI
             buttons.Controls.AddRange(new Control[]
             {
                 cancel, insert, export,
+                MakeButton("Was steht auf dem Kopf?…", FormAction.LinkStack),
                 MakeButton("Objekte hinzufügen…", FormAction.Add),
                 MakeButton("Objekte ausschließen…", FormAction.Exclude),
                 MakeButton("Im Modell zeigen…", FormAction.Highlight),

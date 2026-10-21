@@ -31,7 +31,7 @@ namespace BeamCheck.Cad
         private readonly CheckBox _onlyProblems;
         private readonly CalcResult _res;
 
-        public SpindleListForm(CalcResult res, SpindleSettings s, Sidecar sc, string header)
+        public SpindleListForm(CalcResult res, SpindleSettings s, Sidecar sc, string header, Func<SpindleInfo, bool> show = null)
         {
             _res = res;
             Text = "BeamCheck " + Plugin.BuildTag + " – SPINDELLOAD – spindle loads";
@@ -53,7 +53,7 @@ namespace BeamCheck.Cad
             _table.Columns.Add("What to check", typeof(string));
             _table.Columns.Add("Z foot", typeof(double));
             _table.Columns.Add("Sort", typeof(int));
-            foreach (var sp in res.Spindles)
+            foreach (var sp in res.Spindles.Where(x => show == null || show(x)))
             {
                 var e = sc.Get(sp.Key, false);
                 var ch = new List<string>();

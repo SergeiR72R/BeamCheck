@@ -123,6 +123,12 @@ namespace BeamCheck.Core.Analysis
 
         /// <summary>IDs of all elements that contribute (for highlighting in CAD).</summary>
         public HashSet<string> UsedElementIds { get; } = new HashSet<string>();
+
+        /// <summary>
+        /// Columns ending in a head spindle (or another support end part) with nothing found on them: no stack, no beam, no transfer.
+        /// The user is asked what stands on them.
+        /// </summary>
+        public List<Column> OpenHeads { get; } = new List<Column>();
     }
 }
 
@@ -154,6 +160,23 @@ namespace BeamCheck.Core.Analysis
         public bool IsPinLedger { get; set; }
 
         public Dictionary<Column, ScaffoldElement> PinOf { get; } = new Dictionary<Column, ScaffoldElement>();
+
+        /// <summary>
+        /// Not a beam: a stack standing at the top of a column (offset beside it or above a gap) gives its whole load to that column.
+        /// <see cref="Beam"/> is a weightless link element from the column top to the foot of the stack; the only support is the column.
+        /// </summary>
+        public bool IsStackTransfer { get; set; }
+
+        /// <summary>The user linked the stack by hand (otherwise it was found by distance).</summary>
+        public bool IsManual { get; set; }
+    }
+
+    /// <summary>"This stack stands on that column": any section of the lower column and any section of the stack on it (element ids).</summary>
+    public sealed class StackLink
+    {
+        public string LowerId { get; set; }
+
+        public string UpperId { get; set; }
     }
 
     /// <summary>A stand on an upper beam (or a pin on a ledger) and the fractions of its load the supports take.</summary>

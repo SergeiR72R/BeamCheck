@@ -240,6 +240,21 @@ namespace BeamCheck.Core.Settings
         /// <summary>Drawing unit → mm when INSUNITS is not set (1 = drawing in mm).</summary>
         [DataMember(Order = 84)] public double FallbackUnitToMm { get; set; }
 
+        /// <summary>
+        /// A stack whose foot (spindle, base plate) stands near the top of a column that carries nothing else - beside it or a little
+        /// above it, not on a beam - passes its whole load into that column (a head spindle with the next stack modelled offset).
+        /// </summary>
+        [DataMember(Order = 85)] public bool StackTransferEnabled { get; set; }
+
+        /// <summary>Largest plan distance between the column top and the foot of the stack standing on it, mm.</summary>
+        [DataMember(Order = 86)] public double StackTransferPlanDistance { get; set; }
+
+        /// <summary>Largest height of that foot above the column top, mm (it may also be up to 100 mm below).</summary>
+        [DataMember(Order = 87)] public double StackTransferHeight { get; set; }
+
+        /// <summary>The top part of a column that is a head spindle (article / name): with nothing found on it, the user is asked what stands on it.</summary>
+        [DataMember(Order = 88)] public string HeadPartPattern { get; set; }
+
         [OnDeserializing]
         private void OnDeserializing(StreamingContext context)
         {
@@ -294,6 +309,10 @@ namespace BeamCheck.Core.Settings
             GirderEndSupportOverhang = 500;
             PinPattern = @"(?i)(zapfen|(?<!\d)(130681|130684)(?!\d))";
             SearchRadius = 5000;
+            StackTransferEnabled = true;
+            StackTransferPlanDistance = 600;
+            StackTransferHeight = 600;
+            HeadPartPattern = @"(?i)(spindel|spindle|(?<![a-z])ujb(?![a-z]))";
 
             StandardKgPerM = 5.5;
             LedgerKgPerM = 3.5;

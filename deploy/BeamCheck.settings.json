@@ -148,5 +148,9 @@
   "Scale": 50,
   "Layer": "BEAMLOAD",
   "DecimalSeparator": ",",
-  "FallbackUnitToMm": 1
+  "FallbackUnitToMm": 1,
+  "StackTransferEnabled": true,
+  "StackTransferPlanDistance": 600,
+  "StackTransferHeight": 600,
+  "HeadPartPattern": "(?i)(spindel|spindle|(?<![a-z])ujb(?![a-z]))"
 }

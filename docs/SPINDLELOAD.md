@@ -20,8 +20,14 @@ column carries – upper RCS / SRU beams and the verticals and beams on them (le
 decks bearing on ledgers, level factors, γG / γQ. All tolerances, weights, load classes come from `BeamCheck.settings.json`
 (`BEAMLOADSETTINGS`) and `BeamCheck.weights.csv`.
 
+**Stack on a head spindle, modelled offset** (BeamCheck v47, also in BEAMLOAD / BEAMBATCH): when the foot (spindle / base plate)
+of the next stack stands up to `StackTransferPlanDistance` 600 mm **beside** the top of a column, or up to `StackTransferHeight` 600 mm
+**above** it, and not on a beam, deck or pin, its **whole load goes into that column** (the column top must carry nothing else –
+a column a beam rests on gives the stack to the beam). Each foot goes to the nearest column top. Every such transfer is listed as a note
+(ℹ … *auf dem Kopf … steht …*) and in the Rechenweg (*Versetzt auf dem Kopf*). Switch: `StackTransferEnabled` in `BeamCheck.settings.json`.
+
 On top of BeamCheck:
-* **Head spindles** (nothing found standing on them) are flagged; you tell the program what stands on them. The linked spindle /
+* **Head spindles** (nothing found standing on them, also not by the transfer above) are flagged; you tell the program what stands on them. The linked spindle /
   vertical is calculated with BeamCheck at its own foot and its **whole load** goes into the head spindle **and every spindle below it**.
 * **Added parts** (window) are given to BeamCheck like "Objekte hinzufügen" in BEAMLOAD – so they are distributed by BeamCheck, not just added as weight.
 * **Removed parts** (window) are excluded from every spindle's calculation.
@@ -30,7 +36,12 @@ On top of BeamCheck:
 
 ## SPINDELLOAD – the workflow
 
-1. Load class → `Calculate [All/Select]` (*Select*: window only the part of a big model you need) → reads the drawing → calculates all spindles → summary.
+1. Load class → `Calculate [All/Select/Pick]` (*Select*: window only the part of a big model you need) → reads the drawing → calculates all spindles → summary.
+   **Pick**: pick one or more parts – a spindle, UVA, UVR, UVH, UH-Zapfen, base plate … any vertical part, at any height. Each is calculated like a
+   spindle: **everything standing on it** is collected (its column up to the top, beams and consoles on it, stacks on its head). A part that is not
+   a standard (UH-Zapfen, base plate, nut) stands for the stack standing on it. Only the objects within `PickReadRadius` (15 m) of the picked parts
+   are read, so it is quick in big models. The command line shows *PICKED S… Gk Qk Fk Fd*, and the list shows only the picked parts; open head
+   spindles **above** them are asked for, and listed with them (*Open head spindle(s) above it*).
    A **progress window** shows the step (reading / calculating / linked columns), a progress bar, *x of y*, time of this step, **remaining time** and total time, with a **Cancel** button
    (cancel while calculating: the spindles done so far are kept, the rest are marked *Not calculated*). The times of each step are written to the command line.
    Calculation runs on **all CPU cores**; each spindle gets only the parts around its column (`CandidateRadius`), grown along beams.
@@ -89,6 +100,16 @@ If you use bays longer than ~3 m or very wide consoles and think a load is missi
 | `tests/BeamCheck.Core.Tests/SpindleEngineTests.cs` | engine tests without AutoCAD |
 
 ## History
+
+### v47 (2026-10-21) — stacks on head spindles, pick any vertical
+* **Stack on a head spindle modelled offset** (up to 600 mm beside the head, or its foot up to 600 mm above it): its whole load goes into the head
+  spindle and down – in BEAMLOAD, BEAMBATCH and SPINDELLOAD. Settings `StackTransferEnabled`, `StackTransferPlanDistance`, `StackTransferHeight`
+  (BeamCheck.settings.json, the settings version stays 24: your settings are kept). The foot spindle of such a stack is no longer counted as a bottom spindle.
+* **BEAMLOAD asks** for every head spindle in the load path with nothing found on it: *Was steht darauf? [Wählen/Nichts/Keine weiteren]* – pick the
+  spindle / standard standing on it, its whole load goes into that column. Dialog button **Was steht auf dem Kopf?…** asks again (or lets you pick
+  a head and the stack on it). Head spindles: `HeadPartPattern`.
+* **SPINDELLOAD Pick**: pick any vertical part (spindle, UVA, UVR, UVH, UH-Zapfen …) and get the load of everything standing on it. Setting `PickReadRadius`.
+* Changes on a spindle of the offset stack (manual loads, links, added parts) also count in the head spindle below.
 
 ### v46 (2026-10-20) — SPINDELLOAD in BeamCheck
 * SPINDELLOAD, SPINDELDUMP and SPINDELSETTINGS are commands of `BeamCheck.Acad.dll` (no separate `Vxx_yashu.Spindle.dll`, no loader LISP).

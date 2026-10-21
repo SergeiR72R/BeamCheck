@@ -45,20 +45,45 @@ namespace BeamCheck.Cad
 
         // -------------------------------------------------------------- scanning
 
-        public ScanResult ScanModelSpace(Func<int, int, string, bool> progress = null)
+        /// <summary>Reads model space; with <paramref name="region"/> (x0, y0, x1, y1, zMin in mm) only objects reaching into it.</summary>
+        public ScanResult ScanModelSpace(Func<int, int, string, bool> progress = null, double[] region = null)
         {
             var ms = (BlockTableRecord)_tr.GetObject(SymbolUtilityServices.GetBlockModelSpaceId(_db), OpenMode.ForRead);
             var ids = new List<ObjectId>();
             foreach (ObjectId id in ms) ids.Add(id);
-            return Scan(ids, progress);
+            return Scan(ids, progress, region);
+        }
+
+        /// <summary>Plan box (mm) around objects, grown by <paramref name="radius"/>, from <paramref name="below"/> under their lowest point up.</summary>
+        public double[] RegionAround(IEnumerable<ObjectId> ids, double radius, double below)
+        {
+            double x0 = double.MaxValue, y0 = double.MaxValue, x1 = double.MinValue, y1 = double.MinValue, z0 = double.MaxValue;
+            foreach (var id in ids)
+            {
+                try
+                {
+                    var ext = ((Entity)_tr.GetObject(id, OpenMode.ForRead)).GeometricExtents;
+                    x0 = Math.Min(x0, ext.MinPoint.X * _unit); y0 = Math.Min(y0, ext.MinPoint.Y * _unit); z0 = Math.Min(z0, ext.MinPoint.Z * _unit);
+                    x1 = Math.Max(x1, ext.MaxPoint.X * _unit); y1 = Math.Max(y1, ext.MaxPoint.Y * _unit);
+                }
+                catch (Exception) { }
+            }
+            if (x0 > x1) return null;
+            return new[] { x0 - radius, y0 - radius, x1 + radius, y1 + radius, z0 - below };
+        }
+
+        /// <summary>Element ids read from a picked drawing object.</summary>
+        public List<string> ElementsOf(ObjectId picked)
+        {
+            return Ids.Where(kv => kv.Value == picked).Select(kv => kv.Key).ToList();
         }
 
         public ScanResult ScanEntities(IEnumerable<ObjectId> ids, Func<int, int, string, bool> progress = null)
         {
-            return Scan(ids.ToList(), progress);
+            return Scan(ids.ToList(), progress, null);
         }
 
-        private ScanResult Scan(List<ObjectId> ids, Func<int, int, string, bool> progress)
+        private ScanResult Scan(List<ObjectId> ids, Func<int, int, string, bool> progress, double[] region)
         {
             var res = new ScanResult { UnitToMm = _unit };
             var elements = new List<ScaffoldElement>();
@@ -74,6 +99,7 @@ namespace BeamCheck.Cad
                 {
                     var ent = _tr.GetObject(id, OpenMode.ForRead) as Entity;
                     if (ent == null || IsAnnotation(ent) || !IsVisible(ent)) continue;
+                    if (region != null && Outside(ent, region)) continue;
                     string why = SkipReason(ent, skipLayers);
                     if (why != null) { res.Ignored.Add(why); continue; }
                     clock.Restart();
@@ -117,6 +143,17 @@ namespace BeamCheck.Cad
             }
 
             return res;
+        }
+
+        private bool Outside(Entity ent, double[] r)
+        {
+            if (ent is Ray || ent is Xline) return false;     // skipped (and listed) by SkipReason
+            try
+            {
+                var ext = ent.GeometricExtents;
+                return ext.MaxPoint.X * _unit < r[0] || ext.MinPoint.Y * _unit > r[3] || ext.MinPoint.X * _unit > r[2] || ext.MaxPoint.Y * _unit < r[1] || ext.MaxPoint.Z * _unit < r[4];
+            }
+            catch (Exception) { return false; }
         }
 
         // -------------------------------------------------------------- safety filters

@@ -133,6 +133,24 @@ namespace BeamCheck.Core.Tests
         }
 
         [Fact]
+        public void SupportStandardComingUpThroughTheBeam_IsNoLoadOnIt()
+        {
+            // B-005 in "Beam check Feed_V1": the UVR under the SRU (support S2) reaches a little above the beam top, a deck level hangs on it
+            // 700 mm under the beam, and an empty UVB clamp sits on the beam there. The deck level is not on the beam.
+            var beam = new ScaffoldElement { Id = "SRU", Kind = ElementKind.Beam, Start = new Vec3(0, 0, -60), End = new Vec3(4972, 0, -60), Width = 120, ZMin = -120, ZMax = 0, WeightKg = 135, Description = "SRU U120" };
+            var support = Std(4049, 0, -2236, 20);                                   // UVR 200 below the beam, body up to 20 mm above its top
+            E(ElementKind.Ledger, 4049, 0, -800, -710, 4, "Horizontalriegel UH 100 Plus").End = new Vec3(4049, 1000, -710);
+            E(ElementKind.Ledger, 4049, 1000, -2236, 20, 10, "Vertikalstiel UVR 200").Kind = ElementKind.Standard;
+            _all.Add(new ScaffoldElement { Id = "DECK", Kind = ElementKind.Deck, Start = new Vec3(4049, 500, -680), End = new Vec3(6000, 500, -680), Width = 1000, ZMin = -730, ZMax = -680, WeightKg = 40, Description = "Stahlbelag UDG" });
+            var clamp = E(ElementKind.Standard, 4049, 0, -116, 344, 3, "UVB 136779");
+            var session = new BeamLoadSession(Settings(), new AnalysisInput { Beam = beam, SelectedStandards = { support, clamp }, Candidates = new List<ScaffoldElement>(_all) });
+            var c = session.Result.Points.Single();
+            Assert.Equal(KN(3), c.Gk, Tol);
+            Assert.Equal(0, c.Qk, Tol);
+            Assert.DoesNotContain("DECK", session.Topology.UsedElementIds);
+        }
+
+        [Fact]
         public void PlainScaffoldTop_IsNoOpenHead()
         {
             var beam = new ScaffoldElement { Id = "BEAM", Kind = ElementKind.Beam, Start = new Vec3(0, 0, -200), End = new Vec3(3000, 0, -200), Width = 100, ZMin = -200, ZMax = 0, WeightKg = 50, Description = "RCS Schiene" };

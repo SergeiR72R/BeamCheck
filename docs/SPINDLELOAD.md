@@ -111,6 +111,12 @@ If you use bays longer than ~3 m or very wide consoles and think a load is missi
 
 ## History
 
+### v49 (2026-10-21) — a support standard through the beam is no load on it
+* A standard that comes up **through** the beam from below (its foot more than 200 mm under the beam's underside – the support under the
+  beam) is no longer counted as a stack standing on the beam. Before, when its body reached a little above the beam top, the deck level
+  hanging on it **under** the beam appeared as a load on the beam at that support (B-005 in "Beam check Feed_V1": C = 7,23 kN at S2).
+  BEAMLOAD, BEAMBATCH and SPINDELLOAD (a head spindle inserted into the standard below no longer gets that standard's load).
+
 ### v48 (2026-10-21) — building supports, UVA / UH-Zapfen rows
 * **Building model as supports** (BEAMLOAD, BEAMBATCH, SPINDELLOAD): objects on the layer `BUILDING STRUCTURE…` (`BuildingSupportLayerPattern`) are
   supports – steel beams, foundations, pedestals; 0–300 mm under the scaffold beam (mesh between), ±50 mm in plan; outer supports at the inner edge,

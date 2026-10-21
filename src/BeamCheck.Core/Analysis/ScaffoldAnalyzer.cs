@@ -896,6 +896,10 @@ namespace BeamCheck.Core.Analysis
                     // Only what stands above the beam is carried by it.
                     if (st.ZMax <= beamTop + 1)
                         continue;
+                    // A section that comes up through the beam from below (its foot well under the beam, where a support stands) is the
+                    // support under the beam, not a load on it: what hangs on it below the beam goes straight down that support.
+                    if (st.ZMin < beam.ZMin - FootAllowance)
+                        continue;
                     col.Sections.Add(st);
                 }
 
